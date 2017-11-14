@@ -13,8 +13,8 @@ void EnergySystem::exec(float timestep)
     player = game->getPlayerEntity();
     // recover
     pc->energy += pc->recover*timestep;
-    if(pc->energy > pc->maxEnergy)
-        pc->energy = pc->maxEnergy;
+    if(pc->energy > pc->maxEnergy - pc->bruise)
+        pc->energy = pc->maxEnergy - pc->bruise;
     
     if(pc->bleed > 0)
     {

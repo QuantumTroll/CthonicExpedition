@@ -30,7 +30,10 @@ typedef enum
     COMP_IS_PLAYER_CONTROLLED = 1 << 2,
     COMP_CAN_MOVE = 1 << 3,
     COMP_IS_VISIBLE = 1 << 4,
-    COMP_OMNILIGHT = 1 << 5
+    COMP_OMNILIGHT = 1 << 5,
+    COMP_ANCHOR = 1 << 6,
+    COMP_BANDAGE = 1 << 7,
+    COMP_ROPE = 1 << 8
 } Component;
 
 typedef enum
@@ -46,7 +49,8 @@ typedef enum
     KEY_LOOK = 1 << 7,
     KEY_JUMP = 1 << 8,
     KEY_WAIT = 1 << 9,
-    KEY_CLIMB = 1 << 10
+    KEY_CLIMB = 1 << 10,
+    KEY_INVENTORY = 1 << 11
 } Key;
 
 typedef enum
@@ -86,11 +90,18 @@ typedef struct {
     std::string name;
     int injuries;
     int mood;
+    float strength;
     float energy;
     float maxEnergy;
     float recover;
     float bleed;
-    float strength;
+    float bruise;
+    float armour;
+    float healing;
+    int numBandages;
+    int nuts;
+    float rope;
+    int numFlares;
 } Character;
 
 static PosInt sumPosInt(PosInt a, PosInt b)
@@ -136,13 +147,9 @@ static Float3 normaliseFloat3(Float3 a)
 
 static PosInt Float32PosInt(Float3 p)
 {
-    int x = (int)p.x;// + 0.5; //shit.
-    int y = (int)p.y;// + 0.5;
-    int z = (int)p.z;// + 0.5;
- //   int3 q;
-//    q.x = 0; // = (int)x;
-//    q.y = 0; // = (int)y;
-//    q.z = 0; // = (int)z;
+    int x = (int)(p.x );
+    int y = (int)(p.y );
+    int z = (int)(p.z );
     return {x,y,z};
 }
 

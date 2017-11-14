@@ -54,12 +54,19 @@ void Game::init()
     
     pc.name="Mary-Sue";
     pc.mood=1;
+    pc.strength = 10;
     pc.injuries=0;
     pc.maxEnergy = 100;
     pc.energy = 90;
     pc.recover = 10;
     pc.bleed = 0;
-    pc.strength = 10;
+    pc.bruise = 0;
+    pc.armour = 3;
+    pc.healing = 0.01;
+    pc.numBandages = 3;
+    pc.numFlares = 5;
+    pc.nuts = 5;
+    pc.rope = 6.31;
     
     look = 0;
     
@@ -94,6 +101,7 @@ void Game::addInput(char inchar)
         case 'j': input = KEY_JUMP; break;
         case '.': input = KEY_WAIT; break;
         case 'c': input = KEY_CLIMB; break;
+        case 'i': input = KEY_INVENTORY; break;
         default: input = KEY_NONE;
     }
     
@@ -101,6 +109,18 @@ void Game::addInput(char inchar)
     turnOn();
 }
 
+void Game::displayInventory()
+{
+    char s[64];
+    sprintf(s,"# of flares: %d",pc.numFlares);
+    addToLog(s);
+    sprintf(s,"# of bandages: %d",pc.numBandages);
+    addToLog(s);
+    sprintf(s,"# of anchor nuts: %d",pc.nuts);
+    addToLog(s);
+    sprintf(s,"meters of rope: %.1f",pc.rope);
+    addToLog(s);
+}
 void Game::addToLog(std::string str)
 {
     int numEntries = log.size();
@@ -152,12 +172,16 @@ void Game::doSystems()
         }else if(input & KEY_CLIMB)
         {
             toggleClimb();
+        }else if(input & KEY_INVENTORY)
+        {
+            displayInventory();
         }
     }
     // step simulation
     // grab an event. take timestep. //TODO: fix this so it works as intended. Maybe Looking/Floating should take a teensy bit of time? Or maybe control input shouldn't be stupid and trigger spurious doSystems() calls.
     energy->exec(timeStep);
     movement->exec(world, timeStep);
+    heal(timeStep);
     time += timeStep;
     
     //TODO: check if movement brought player in range of cell edge. if so, offload old and load new cells.
@@ -253,8 +277,8 @@ void Game::jump()
     
     addToLog("You jump");
     
-    // jumping costs energy
-    pc.energy -= 30;
+    // jumping costs energy. Should cost according to velocity...
+    pc.energy -= 20;
     
     // if standing about, jump up
     if(look == 0)
@@ -282,14 +306,39 @@ void Game::collision(entity_t ent, float dV)
     if(ent == player)
     {
         if( dV > 2 ) // TODO: relate damage cutoff to "toughness" or something
-        {
-            pc.injuries += (int)dV-1;
-            if(pc.injuries > 3)
+        { /** You take a hit. get a damage value
+           — If your armour value > damage, armour takes the damage (“clothes get ripped”).
+           — else if damage is low and bruising < maxEnergy, you get a bruise. maxEnergy is decreased.
+           — else if damage is high, you get a bleeding injury. recovery is decreased, possibly into the negative.
+           */
+            
+            float damage = dV-1;
+            if(pc.armour > damage)
             {
-                pc.bleed += (int)dV;
+                pc.armour -= damage;
+                addToLog("You land badly and rip your clothes");
+            }else if( damage < 2 && pc.bruise + damage < pc.maxEnergy) //TODO: relate this 2 to "skin toughness"
+            {
+                pc.bruise += damage*5;
+                addToLog("You land badly and knock the wind out of you");
+            }else{
+                addToLog("You get a bad scrape");
+                pc.bleed += damage*3;
             }
-            addToLog("You injured yourself.");
         }
+    }
+}
+
+void Game::heal(float timeStep)
+{
+    float h = pc.healing*timeStep;
+    if(pc.bleed > 0)
+    {
+        pc.bleed = fmax(0,pc.bleed - h);
+        if(pc.bleed == 0)
+            addToLog("You stop bleeding");
+    }else {
+        pc.bruise = fmax(0,pc.bruise - h);
     }
 }
 

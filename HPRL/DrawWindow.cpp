@@ -728,14 +728,15 @@ void DrawWindow::drawBottomPanel()
     // draw character info
     j = 4;
     i = tilesWide*3;
-
-    print_text2(game->getCharacter()->name.c_str(),i,j);
+    
+    Character* pc = game->getCharacter();
+    print_text2(pc->name.c_str(),i,j);
     char s[64];
     j = 3;
-    sprintf(s,"Energy: %d/100 Recover: %d/turn",(int)game->getCharacter()->energy,(int)(game->getCharacter()->recover-game->getCharacter()->bleed));
+    sprintf(s,"Energy: %d/%d Recover: %d/turn",(int)pc->energy,(int)(pc->maxEnergy-pc->bruise),(int)(pc->recover-pc->bleed));
     print_text2(s,i,j);
     j = 2;
-    sprintf(s,"Injuries: %d. Mood: %d/10",game->getCharacter()->injuries,game->getCharacter()->mood);
+    sprintf(s,"Mood: %d/10",game->getCharacter()->mood);
     print_text2(s,i,j);
     
     // TODO: use tiles to creatively draw the character's orientation (walk/climb/jump).

@@ -301,7 +301,7 @@ void Movement::exec(World* w, float timestep)
                 }
                 
                 // simulate movement until it hits a solid
-                float dt = 0.01;
+                float dt = 0.001;
                 float t = 0;
                 PosInt piOld = pi;
                 for(t=0; t<timestep; t+=dt)

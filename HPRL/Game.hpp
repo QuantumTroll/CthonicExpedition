@@ -62,6 +62,7 @@ class Game
     void jump();
     void toggleLook();
     void toggleClimb();
+    void heal(float timestep);
 
     int isOn;
     
@@ -85,6 +86,7 @@ public:
     
     std::deque<std::string> getLog() { return log; }
     void addToLog(std::string str);
+    void displayInventory();
     
 
     
