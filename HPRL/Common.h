@@ -153,11 +153,23 @@ static PosInt Float32PosInt(Float3 p)
     int z = (int)(p.z );
     return {x,y,z};
 }
+static PosInt Float32PosInt_rounded(Float3 p)
+{
+    int x = (int)(p.x + 0.5f);
+    int y = (int)(p.y + 0.5f);
+    int z = (int)(p.z + 0.5f);
+    return {x,y,z};
+}
 
 static Float3 PosInt2Float3(PosInt p)
 {
     return Float3{(float)p.x,(float)p.y,(float)p.z};
 }
+static Float3 PosInt2Float3_rounded(PosInt p)
+{
+    return Float3{(float)p.x+0.5f,(float)p.y+0.5f,(float)p.z+0.5f};
+}
+
 
 static int distPosInt(PosInt a, PosInt b)
 {

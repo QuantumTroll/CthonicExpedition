@@ -102,6 +102,7 @@ void Game::addInput(char inchar)
         case '.': input = KEY_WAIT; break;
         case 'c': input = KEY_CLIMB; break;
         case 'i': input = KEY_INVENTORY; break;
+        case 'b': input = KEY_BANDAGE; break;
         default: input = KEY_NONE;
     }
     
@@ -155,16 +156,16 @@ void Game::doSystems()
         }else if(input & KEY_FLARE)
         {
             if(look == 0)
-                dropFlare();
+                timeStep = dropFlare();
             else
-                throwFlare();
+                timeStep = throwFlare();
             
         }else if(input & KEY_LOOK)
         {
             toggleLook();
         }else if(input & KEY_JUMP)
         {
-            jump();
+            timeStep = jump();
         }else if(input & KEY_WAIT)
         {
             //TODO: if walking, center player.
@@ -177,7 +178,7 @@ void Game::doSystems()
             displayInventory();
         }else if(input & KEY_BANDAGE)
         {
-            useBandage();
+            timeStep = useBandage();
         }
     }
     // step simulation
@@ -248,7 +249,7 @@ void Game::toggleClimb()
     }
 }
 
-void Game::dropFlare()
+float Game::dropFlare()
 {
     if(pc.numFlares > 0)
     {
@@ -259,9 +260,11 @@ void Game::dropFlare()
         world->position[flare] = world->position[player];
         world->velocity[flare] = {0,0,0};
         addToLog("You drop a flare");
+        return 1;
     }
+    return 0;
 }
-void Game::throwFlare()
+float Game::throwFlare()
 {
     if(pc.numFlares > 0)
     {
@@ -277,9 +280,11 @@ void Game::throwFlare()
         delta = mulFloat3(normaliseFloat3(delta),len);
         world->velocity[flare] = {delta.x,delta.y,delta.z};
         addToLog("You throw a flare");
+        return 1;
     }
+    return 0;
 }
-void Game::useBandage()
+float Game::useBandage()
 {
     if(pc.numBandages > 0 && pc.bleed > 0)
     {
@@ -288,13 +293,15 @@ void Game::useBandage()
         pc.bleed = fmax(0,pc.bleed - 10);
         if(pc.bleed == 0)
             addToLog("You manage to stop the bleeding");
+        return 1;
     }
+    return 0;
 }
-void Game::jump()
+float Game::jump()
 {
     // no double-jump! Can't jump if you're free falling
     if(world->move_type[player] & MOV_FREE)
-        return;
+        return 0;
     
     addToLog("You jump");
     
@@ -306,9 +313,13 @@ void Game::jump()
     {
         world->velocity[player] = {0,0,1.5};
         world->move_type[player] = MOV_FREE;
-        return;
+        return 1;
     }
     // if Looking at a point, jump there
+    // move player, look to center of her position
+    world->position[player] = PosInt2Float3_rounded(Float32PosInt(world->position[player]));
+    world->position[look] = PosInt2Float3_rounded(Float32PosInt(world->position[look]));
+    
     world->move_type[player] = MOV_FREE;
     Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
     float len = fmin(normFloat3(delta), 1.5); //TODO: use player's str or jump stat
@@ -317,6 +328,7 @@ void Game::jump()
     
     // turn off Look mode
     toggleLook();
+    return 1;
 }
 
 void Game::collision(entity_t ent, float dV)
@@ -338,7 +350,7 @@ void Game::collision(entity_t ent, float dV)
             {
                 pc.armour -= damage;
                 addToLog("You land badly and rip your clothes");
-            }else if( damage < 2 && pc.bruise + damage < pc.maxEnergy) //TODO: relate this 2 to "skin toughness"
+            }else if( damage < 3 && pc.bruise + damage < pc.maxEnergy) //TODO: relate this "3" to "skin toughness"
             {
                 pc.bruise += damage*5;
                 addToLog("You land badly and knock the wind out of you");

@@ -57,13 +57,13 @@ class Game
     
     int pointVisibility(Float3 f, Float3 t);
     
-    void dropFlare();
-    void throwFlare();
-    void jump();
+    float dropFlare();
+    float throwFlare();
+    float jump();
     void toggleLook();
     void toggleClimb();
     void heal(float timestep);
-    void useBandage();
+    float useBandage();
 
     int isOn;
     
