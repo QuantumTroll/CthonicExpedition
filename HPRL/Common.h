@@ -50,7 +50,8 @@ typedef enum
     KEY_JUMP = 1 << 8,
     KEY_WAIT = 1 << 9,
     KEY_CLIMB = 1 << 10,
-    KEY_INVENTORY = 1 << 11
+    KEY_INVENTORY = 1 << 11,
+    KEY_BANDAGE = 1 << 12
 } Key;
 
 typedef enum

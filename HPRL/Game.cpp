@@ -175,6 +175,9 @@ void Game::doSystems()
         }else if(input & KEY_INVENTORY)
         {
             displayInventory();
+        }else if(input & KEY_BANDAGE)
+        {
+            useBandage();
         }
     }
     // step simulation
@@ -247,27 +250,45 @@ void Game::toggleClimb()
 
 void Game::dropFlare()
 {
-    entity_t flare = world->createEntity();
-    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
-    world->light_source[flare].brightness = 4.0;
-    world->is_visible[flare].tex = 4;    
-    world->position[flare] = world->position[player];
-    world->velocity[flare] = {0,0,0};
-    addToLog("You drop a flare");
+    if(pc.numFlares > 0)
+    {
+        entity_t flare = world->createEntity();
+        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
+        world->light_source[flare].brightness = 4.0;
+        world->is_visible[flare].tex = 4;
+        world->position[flare] = world->position[player];
+        world->velocity[flare] = {0,0,0};
+        addToLog("You drop a flare");
+    }
 }
 void Game::throwFlare()
 {
-    entity_t flare = world->createEntity();
-    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
-    world->light_source[flare].brightness = 4.0;
-    world->position[flare] = world->position[player];
-    world->move_type[flare] = MOV_FREE;
-    world->is_visible[flare].tex = 4;
-    Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
-    float len = fmin(normFloat3(delta), 4); //TODO: use player's strength stat
-    delta = mulFloat3(normaliseFloat3(delta),len);
-    world->velocity[flare] = {delta.x,delta.y,delta.z};
-    addToLog("You throw a flare");
+    if(pc.numFlares > 0)
+    {
+        pc.numFlares --;
+        entity_t flare = world->createEntity();
+        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
+        world->light_source[flare].brightness = 4.0;
+        world->position[flare] = world->position[player];
+        world->move_type[flare] = MOV_FREE;
+        world->is_visible[flare].tex = 4;
+        Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
+        float len = fmin(normFloat3(delta), 4); //TODO: use player's strength stat
+        delta = mulFloat3(normaliseFloat3(delta),len);
+        world->velocity[flare] = {delta.x,delta.y,delta.z};
+        addToLog("You throw a flare");
+    }
+}
+void Game::useBandage()
+{
+    if(pc.numBandages > 0 && pc.bleed > 0)
+    {
+        addToLog("You use a bandage");
+        pc.numBandages --;
+        pc.bleed = fmax(0,pc.bleed - 10);
+        if(pc.bleed == 0)
+            addToLog("You manage to stop the bleeding");
+    }
 }
 void Game::jump()
 {

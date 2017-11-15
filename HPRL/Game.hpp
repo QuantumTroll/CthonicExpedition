@@ -63,6 +63,7 @@ class Game
     void toggleLook();
     void toggleClimb();
     void heal(float timestep);
+    void useBandage();
 
     int isOn;
     

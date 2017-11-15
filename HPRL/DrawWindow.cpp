@@ -359,9 +359,10 @@ void DrawWindow::drawWorld()
             }
             
             // Entity's position
-            int x = (int)(world->position[ent].x+.5);
-            int y = (int)(world->position[ent].y+.5);
-            int z = (int)(world->position[ent].z+.5);
+            PosInt pos = Float32PosInt(world->position[ent]);
+            int x = pos.x;//(int)(world->position[ent].x+.5);
+            int y = pos.y;//(int)(world->position[ent].y+.5);
+            int z = pos.z;//(int)(world->position[ent].z+.5);
             
             // the tile on which to draw it // i = px-x;
             int i = px + x;
@@ -736,8 +737,13 @@ void DrawWindow::drawBottomPanel()
     sprintf(s,"Energy: %d/%d Recover: %d/turn",(int)pc->energy,(int)(pc->maxEnergy-pc->bruise),(int)(pc->recover-pc->bleed));
     print_text2(s,i,j);
     j = 2;
-    sprintf(s,"Mood: %d/10",game->getCharacter()->mood);
+    sprintf(s,"Mood: %d/10",pc->mood);
     print_text2(s,i,j);
+    if(pc->bleed > 0)
+    {
+        sprintf(s,"Bleeding");
+        print_text2(s,i+4,j);
+    }
     
     // TODO: use tiles to creatively draw the character's orientation (walk/climb/jump).
 }
