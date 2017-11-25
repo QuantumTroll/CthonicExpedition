@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include "Common.h"
 
+#include "Overworld.hpp"
+
 typedef enum
 {
     TT_ROCK1=0,
@@ -36,7 +38,7 @@ typedef enum
 
 typedef struct
 {
-    int x,y,z;
+   // int x,y,z;
     TileProp propmask;
     float damage;
     float toughness;
@@ -50,23 +52,32 @@ typedef struct
 class MapCell
 {
 private:
+    Overworld* overworld;
+    
     MapTile* getTile(PosInt p);
-public: // TODO: hmm....
+
     int gx, gy, gz; // location of map cell in world
     int sizexy, sizez; // dimensions of map cell
     
+    int isInside(Float3 p);
+    
     MapTile *** tiles;
     
-    MapTile* getGlobalTile(PosInt p);
-    MapTile* getGlobalTile(int x, int y, int z);
-    
-    void setTileType(int x, int y, int z, TileType tt);
+    void genLocalDefault(MCInfo info);
     void initTile(int x, int y, int z);
     void generateLocalTopology();
     
-    int visibility(Float3 o, Float3 t);
+public:
+    MapTile* getGlobalTile(PosInt p);
+    MapTile* getGlobalTile(int x, int y, int z);
+    
+    void setTileType(PosInt p, TileType tt);
+    void setTileType(int x, int y, int z, TileType tt);
 
-    MapCell(int sxy, int sz, int x, int y, int z);
+    MapCell(int sxy, int sz, int x, int y, int z, Overworld* ow);
+    
+    void unload(World* w);
+    void load(World* w, int x, int y, int z);
 };
 
 #endif /* MapCell_hpp */

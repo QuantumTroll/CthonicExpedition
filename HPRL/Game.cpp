@@ -34,6 +34,12 @@ entity_t World::createEntity()
 void World::destroyEntity(entity_t e)
 {
     mask[e] = COMP_NONE;
+    // also get rid of other values?
+}
+
+void World::saveEntity(entity_t ent, FILE *f)
+{
+    printf("TODO: save entity %d to file\n", ent);
 }
 
 void Game::init()
@@ -45,12 +51,13 @@ void Game::init()
     world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_OMNILIGHT;
   //  world->is_player_controlled[player].is_player_controlled = 1;
   //  world->is_visible[player].is_visible = 1;
-    world->position[player] = {11,14,5};
+    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*2.5)};
     world->velocity[player] = {0,0,0};
     world->is_visible[player].tex = 265; // some thing
-    world->move_type[player] = MOV_WALK; // default movement mode
+    world->is_visible[player].tex_side = 265; // some thing
+    world->move_type[player] = MOV_FREE; // default movement mode
     world->light_source[player].brightness = 2.0; // reduce when not debugging
-    lookAt = {0,0,0};
+    lookAt = Float32PosInt( world->position[player]);//{0,0,0};
     
     pc.name="Mary-Sue";
     pc.mood=1;
@@ -71,13 +78,23 @@ void Game::init()
     look = 0;
     
     //TODO: generate "overworld"?
+    overworld = new Overworld();
+    
+    cellCoords = getCellCoords(Float32PosInt_rounded( world->position[player]));
     
     // generate map cells
     int i, j, k;
     for(i=0; i<3; i++)
         for(j=0; j<3; j++)
-            for(k=0; k<3; k++)
-                cell[i][j][k] = new MapCell(30,20,i-1,j-1,k-1); //30 xy, 20 z, origin.
+            for(k=0; k<3; k++){
+                cell[i][j][k] = new MapCell(cellSizeXY,cellSizeZ,cellCoords.x+i-1,cellCoords.y+j-1,cellCoords.z+k-1,overworld);
+                printf("cell %d %d %d has coords %d %d %d\n",i,j,k,i,j,k);
+            }
+    
+    //TEST:
+  //  for(i=0;i<80;i++)
+  //      printf("%d gets cell %d\n",i,getCellCoords(i,66,50).x);
+    
     
     addToLog("You wake up in the test cave. There is no escape.");
     turnOn();
@@ -182,26 +199,201 @@ void Game::doSystems()
         }
     }
     // step simulation
-    // grab an event. take timestep. //TODO: fix this so it works as intended. Maybe Looking/Floating should take a teensy bit of time? Or maybe control input shouldn't be stupid and trigger spurious doSystems() calls.
+    // grab an event. take timestep. //TODO: fix this so it works as intended. Maybe Looking/Floating should take a teensy bit of time? Or maybe control input shouldn't be stupid and trigger spurious doSystems() calls. //update: maybe fixed now?
     energy->exec(timeStep);
     movement->exec(world, timeStep);
     heal(timeStep);
     time += timeStep;
     
     //TODO: check if movement brought player in range of cell edge. if so, offload old and load new cells.
-
+//    cellCoords
+    PosInt currentCellCoords = getCellCoords(Float32PosInt_rounded( world->position[player]));
+    if(manhattanPosInt(cellCoords, currentCellCoords) > 0)
+    {
+        // offload old cells, load new cells
+        printf("player at %f %f %f, UN/LOAD CELLS\n",world->position[player].x,world->position[player].y,world->position[player].z);
+        
+        int i, j;
+        
+        // move cells in local matrix
+        if(cellCoords.x < currentCellCoords.x) // moved right
+        {
+            printf("moved right\n");
+            // unload cell[0][*][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[0][i][j]->unload(world);
+                    delete cell[0][i][j];
+                }
+            // cell[0][*][*] = cell[1][*][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[0][i][j] = cell[1][i][j];
+            // cell[1][*][*] = cell[2][*][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[1][i][j] = cell[2][i][j];
+            // cell[2][*][*] = load 9 cells
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[2][i][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+1,currentCellCoords.y+i-1,currentCellCoords.z+j-1, overworld);
+                    cell[2][i][j]->load(world,currentCellCoords.x+1,currentCellCoords.y+i-1,currentCellCoords.z+j-1);
+                }
+        }else if(cellCoords.x > currentCellCoords.x) // moved left
+        {
+            // unload cell[2][*][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++){
+                    cell[2][i][j]->unload(world);
+                    delete cell[2][i][j];
+                }
+            // cell[2][*][*] = cell[1][*][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[2][i][j] = cell[1][i][j];
+            // cell[1][*][*] = cell[0][*][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[1][i][j] = cell[0][i][j];
+            // cell[0][*][*] = load 9 cells
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[0][i][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x-1,currentCellCoords.y+i-1,currentCellCoords.z+j-1, overworld);
+                    cell[0][i][j]->load(world,currentCellCoords.x-1,currentCellCoords.y+i-1,currentCellCoords.z+j-1);
+                }
+        }else if(cellCoords.y < currentCellCoords.y) // moved north
+        {
+            printf("moved north\n");
+            // unload cell[*][0][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][0][j]->unload(world);
+                    delete cell[i][0][j];
+                }
+            // cell[*][0][*] = cell[*][1][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][0][j] = cell[i][1][j];
+            // cell[*][1][*] = cell[*][2][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][1][j] = cell[i][2][j];
+            // cell[*][2][*] = load 9 cells
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][2][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+1,currentCellCoords.z+j-1, overworld);
+                    cell[i][2][j]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+1,currentCellCoords.z+j-1);
+                }
+        }else if(cellCoords.y > currentCellCoords.y) // moved south
+        {
+            // unload cell[*][2][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][2][j]->unload(world);
+                    delete cell[i][2][j];
+                }
+            // cell[*][2][*] = cell[*][1][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][2][j] = cell[i][1][j];
+            // cell[*][1][*] = cell[*][0][*]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][1][j] = cell[i][0][j];
+            // cell[*][0][*] = load 9 cells
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][0][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y-1,currentCellCoords.z+j-1, overworld);
+                    cell[i][0][j]->load(world,currentCellCoords.x+i-1,currentCellCoords.y-1,currentCellCoords.z+j-1);
+                }
+        }else if(cellCoords.z < currentCellCoords.z) // moved up
+        {
+            // unload cell[*][*][0]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][j][0]->unload(world);
+                    delete cell[i][j][0];
+                }
+            // cell[*][*][0] = cell[*][*][1]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][j][0] = cell[i][j][1];
+            // cell[*][*][1] = cell[*][*][2]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][j][1] = cell[i][j][2];
+            // cell[*][*][2] = load 9 cells
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][j][2] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z+1, overworld);
+                    cell[i][j][2]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z+1);
+                }
+        }else if(cellCoords.z > currentCellCoords.z) // moved down
+        {
+            // unload cell[*][*][2]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][j][2]->unload(world);
+                    delete cell[i][j][2];
+                }
+            // cell[*][*][2] = cell[*][*][1]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][j][2] = cell[i][j][1];
+            // cell[*][*][1] = cell[*][*][0]
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                    cell[i][j][1] = cell[i][j][0];
+            // cell[*][*][0] = load 9 cells
+            for(i=0;i<3;i++)
+                for(j=0;j<3;j++)
+                {
+                    cell[i][j][0] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z-1, overworld);
+                    cell[i][j][0]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z-1);
+                }
+        }
+        
+        // shift the current cell coords
+        cellCoords = currentCellCoords;
+        
+        //TEST:
+        //for(i=-40;i<40;i++)
+        //    printf("%d gets cell %d\n",i,getCellCoords(i,0,0).x);
+    }
+    
     // update lookAt
     if(look == 0)
     {
         lookAt.x = (int)(world->position[player].x + 0.5);
         lookAt.y = (int)(world->position[player].y + 0.5);
         lookAt.z = (int)(world->position[player].z + 0.5);
-        //printf("updating lookat(player): %d %d %d\n",lookAt.x,lookAt.y,lookAt.z);
+        if(world->position[player].x < 0)
+            lookAt.x --;
+        if(world->position[player].y < 0)
+            lookAt.y --;
+        if(world->position[player].z < 0)
+            lookAt.z --;
     }else
     {
         lookAt.x = (int)(world->position[look].x + 0.5);
         lookAt.y = (int)(world->position[look].y + 0.5);
         lookAt.z = (int)(world->position[look].z + 0.5);
+        if(world->position[look].x < 0)
+            lookAt.x --;
+        if(world->position[look].y < 0)
+            lookAt.y --;
+        if(world->position[look].z < 0)
+            lookAt.z --;
     }
     turnOff();
 }
@@ -214,6 +406,7 @@ void Game::toggleLook()
         look = world->createEntity();
         world->mask[look] = COMP_IS_PLAYER_CONTROLLED | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_IS_VISIBLE;
         world->is_visible[look].tex = 3;
+        world->is_visible[look].tex_side = 3;
         world->position[look] = world->position[player];
         world->velocity[look] = world->velocity[player];
         printf("%d %d %d\n",(int)(world->position[look].x+0.5),(int)(world->position[look].y+0.5),(int)(world->position[look].z+0.5));
@@ -257,6 +450,7 @@ float Game::dropFlare()
         world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
         world->light_source[flare].brightness = 4.0;
         world->is_visible[flare].tex = 4;
+        world->is_visible[flare].tex_side = 4;
         world->position[flare] = world->position[player];
         world->velocity[flare] = {0,0,0};
         addToLog("You drop a flare");
@@ -275,8 +469,9 @@ float Game::throwFlare()
         world->position[flare] = world->position[player];
         world->move_type[flare] = MOV_FREE;
         world->is_visible[flare].tex = 4;
+        world->is_visible[flare].tex_side = 4;
         Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
-        float len = fmin(normFloat3(delta), 4); //TODO: use player's strength stat
+        float len = fmin(normFloat3(delta), 3); //TODO: use player's strength stat
         delta = mulFloat3(normaliseFloat3(delta),len);
         world->velocity[flare] = {delta.x,delta.y,delta.z};
         addToLog("You throw a flare");
@@ -369,7 +564,18 @@ void Game::heal(float timeStep)
     {
         pc.bleed = fmax(0,pc.bleed - h);
         if(pc.bleed == 0)
+        {
             addToLog("You stop bleeding");
+        }
+        //TODO: this is the ugliest blood I've ever seen.
+        else if( world->move_type[player] & MOV_WALK){
+            entity_t blood = world->createEntity();
+            world->mask[blood] = COMP_POSITION | COMP_IS_VISIBLE;
+            world->position[blood] = world->position[player];
+            world->is_visible[blood].tex = 5;
+            world->is_visible[blood].tex_side = 6;
+        }
+            
     }else {
         pc.bruise = fmax(0,pc.bruise - h);
     }
@@ -425,11 +631,12 @@ int Game::pointVisibility(Float3 f, Float3 t)
     
     int i;
     for(i=0; i<distance/stepSize-1; i++)
-    //while(! isEqPosInt(pi, to))
     {
-        //TODO: get the right cell
-        //if the current cell is not transparent, end it.
-        if(! (cell[1][1][1]->tiles[pi.z][pi.x][pi.y].propmask & TP_ISTRANSPARENT))
+        //MapCell * c = getCellCoords(pi.x,pi.y,pi.z);
+        MapTile * tile = getTile(pi.x,pi.y,pi.z);
+
+        //if the current tile is not transparent, end it.
+        if(! (tile->propmask & TP_ISTRANSPARENT))
         {
           //  if(distance < 5)
           //      printf("%d %d: %f\n",pi.x,pi.y,distance - stepSize*i);
@@ -492,27 +699,68 @@ int Game::visibility(PosInt from, PosInt to)
     return -1;
 }
 
-//TODO: make actually aware of global xyz coords
-MapCell * Game::getCellCoords(int x, int y, int z)
+// returns the coordinates of the map cell for given global coords
+PosInt Game::getCellCoords(int x, int y, int z)
 {
-    MapCell * c = cell[1][1][1];
-    int sxy = c->sizexy;
-    int sz = c->sizez;
-    int cx = 1;
-    int cy = 1;
-    int cz = 1;
-    if(x < 0)
-        cx = 0;
-    if(x >= sxy)
-        cx = 2;
-    if(y < 0)
-        cy = 0;
-    if(y >= sxy)
-        cy = 2;
-    if(z < 0)
-        cz = 0;
-    if(z >= sz)
-        cz = 2;
+    PosInt p;
     
+    // fix for -0
+    if(x < 0)
+        x -= cellSizeXY-1;
+    if(y < 0)
+        y -= cellSizeXY-1;
+    if(z < 0)
+        z -= cellSizeZ-1;
+    
+    p.x = x/cellSizeXY;
+    p.y = y/cellSizeXY;
+    p.z = z/cellSizeZ;
+    return p;
+}
+
+// returns address of loaded mapcell at the specified global coordinates
+MapCell * Game::getCellatCoords(int x, int y, int z)
+{
+    // cell 1 1 1 is the cell at cellcoords.
+    // cell 2 1 1 is the cell at cellcoords + {1,0,0}
+    // cell 1 0 1 is the cell att cellcoords + {0,-1,0}
+    // got it?
+    
+    // cellcoord 0,0,0 spans from 0,0,0 to sizexy,sizexy,sizez
+    // cellcoord 1,0,0 spans from sizexy,0,0 to sizexy*2,sizexy,sizez
+    // cellcoord -1,0,0 spans from -sizexy,0,0 to 0,0,0
+            
+    PosInt cc = getCellCoords(x,y,z);
+   // printf("%d %d %d got cc %d %d %d\n",x,y,z,cc.x,cc.y,cc.z);
+    
+    int cx = cc.x-cellCoords.x+1;
+    int cy = cc.y-cellCoords.y+1;
+    int cz = cc.z-cellCoords.z+1;
+    
+    if(cx < 0 || cx > 2 || cy < 0 || cy > 2 || cz < 0 || cz > 2)
+    {
+        fprintf(stderr,"asking for invalid cell in getCellatCoords(%d %d %d),cellCoords=%d %d %d",x,y,z,cellCoords.x,cellCoords.y,cellCoords.z);
+        return NULL;
+    }
+    //printf("getCellCoords %d %d %d got cell %d %d %d\n",x,y,z,cc.x,cc.y,cc.z);
     return cell[cx][cy][cz];
+}
+
+MapTile* Game::getTile(int x, int y, int z)
+{
+    MapCell *c = getCellatCoords(x,y,z); // gets the cell that owns the coords
+    return c->getGlobalTile(x,y,z);
+}
+MapTile* Game::getTile(float x, float y, float z)
+{
+    Float3 p = {x,y,z};
+    return getTile(p);
+}
+MapTile* Game::getTile(PosInt p)
+{
+    return getTile(p.x,p.y,p.z);
+}
+MapTile* Game::getTile(Float3 p)
+{
+    return getTile(Float32PosInt_rounded(p));
 }

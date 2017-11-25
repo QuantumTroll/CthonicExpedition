@@ -10,13 +10,15 @@
 
 int Movement::isWalkable(PosInt p)
 {
-    MapCell * c = game->getCellCoords(p.x,p.y,p.z);
+   // MapCell * c = game->getCellCoords(p.x,p.y,p.z);
+    MapTile * tile = game->getTile(p.x,p.y,p.z);
     
     // walkable iff tile is air and tile below is solid
-    if(c->tiles[p.z][p.x][p.y].propmask & TP_AIR )
+    if(tile->propmask & TP_AIR )
     {
-        c = game->getCellCoords(p.x,p.y,p.z-1);
-        if(c->tiles[p.z-1][p.x][p.y].propmask & TP_SOLID)
+        //c = game->getCellCoords(p.x,p.y,p.z-1);
+        tile = game->getTile(p.x,p.y,p.z-1);
+        if(tile->propmask & TP_SOLID)
             return 1;
     }
     return 0;
@@ -24,69 +26,69 @@ int Movement::isWalkable(PosInt p)
 
 int Movement::isClimbable(PosInt p)
 {
-    MapCell * c = game->getCellCoords(p.x,p.y,p.z);
+    MapTile * tile = game->getTile(p.x,p.y,p.z);
     
     // climbable iff tile is air and a grippable tile is anywhere nearby
-    if(c->tiles[p.z][p.x][p.y].propmask & TP_AIR )
+    if(tile->propmask & TP_AIR )
     {
         PosInt pt;
         
         //TODO: Reorganise this disaster plz
         pt = {p.x-1,p.y,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x+1,p.y,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y-1,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y+1,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y,p.z-1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y,p.z+1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         // cardinal + 1
         pt = {p.x-1,p.y+1,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x+1,p.y+1,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x+1,p.y-1,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y+1,p.z+1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x+1,p.y,p.z-1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x+1,p.y,p.z+1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         //cardinal - 1
         pt = {p.x-1,p.y-1,p.z};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x-1,p.y,p.z-1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y-1,p.z-1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y-1,p.z+1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x,p.y+1,p.z-1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         pt = {p.x+1,p.y,p.z+1};
-        if(game->getCellCoords(pt.x,pt.y,pt.z)->getGlobalTile(pt)->propmask & TP_GRIPPABLE)
+        if(game->getTile(pt.x,pt.y,pt.z)->propmask & TP_GRIPPABLE)
             return 1;
         
     }
@@ -123,10 +125,6 @@ float Movement::climb(World* w, Key input, entity_t ent)
     {
         //TODO: this makes *everything* de-climb if player's energy<0
         w->move_type[ent] = MOV_FREE;
-        /*Float3 *v = &(w->velocity[ent]);
-        v->x = 0;
-        v->y = 0;
-        v->z = 0;*/
         return 1;
     }
     
@@ -288,8 +286,8 @@ void Movement::exec(World* w, float timestep)
                 
                 // if velocity is zero and lying on top of a solid, move on
                 PosInt pi = Float32PosInt(*p);
-                MapCell * c = game->getCellCoords(pi.x, pi.y, pi.z);
-                if(normFloat3(*v) < 0.01 && c->tiles[pi.z-1][pi.x][pi.y].propmask & TP_SOLID)
+                
+                if(normFloat3(*v) < 0.01 && game->getTile(pi.x,pi.y,pi.z-1)->propmask & TP_SOLID)
                 {
                     // consider changing movement type. How do I tell what's appropriate?
                     if(ent == game->getPlayerEntity())
@@ -309,8 +307,8 @@ void Movement::exec(World* w, float timestep)
                     *v = sumFloat3(*v,{0,0,-1.0f*dt});      // dv = gravity * time
                     *p = sumFloat3(*p, mulFloat3(*v, dt));  // dt = v * time
                     pi = Float32PosInt(*p);
-                    c = game->getCellCoords(pi.x, pi.y, pi.z);
-                    if(c->tiles[pi.z][pi.x][pi.y].propmask & TP_SOLID)
+                    
+                    if(game->getTile(pi.x,pi.y,pi.z)->propmask & TP_SOLID)
                     {
                         // tell Game that we just hit something. Give it v to see how hard.
                         game->collision(ent, normFloat3(*v));

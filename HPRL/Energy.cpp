@@ -37,16 +37,16 @@ void EnergySystem::exec(float timestep)
         // Number of grippable tiles around
         int numGrippable = 0;
         p2 = {p.x-1,p.y,p.z};
-        if(game->getCellCoords(p2.x,p2.y,p2.z)->getGlobalTile(p2)->propmask & TP_GRIPPABLE)
+        if(game->getTile(p2)->propmask & TP_GRIPPABLE)
             numGrippable++;
         p2 = {p.x+1,p.y,p.z};
-        if(game->getCellCoords(p2.x,p2.y,p2.z)->getGlobalTile(p2)->propmask & TP_GRIPPABLE)
+        if(game->getTile(p2)->propmask & TP_GRIPPABLE)
             numGrippable++;
         p2 = {p.x,p.y-1,p.z};
-        if(game->getCellCoords(p2.x,p2.y,p2.z)->getGlobalTile(p2)->propmask & TP_GRIPPABLE)
+        if(game->getTile(p2)->propmask & TP_GRIPPABLE)
             numGrippable++;
         p2 = {p.x,p.y+1,p.z};
-        if(game->getCellCoords(p2.x,p2.y,p2.z)->getGlobalTile(p2)->propmask & TP_GRIPPABLE)
+        if(game->getTile(p2)->propmask & TP_GRIPPABLE)
             numGrippable++;
         
         if(numGrippable == 0) // overhead hold or other uncomfortable position
@@ -56,8 +56,8 @@ void EnergySystem::exec(float timestep)
             
         // if there's ground below
         p2 = {p.x,p.y,p.z-1};
-        c = game->getCellCoords(p2.x,p2.y,p2.z);
-        if(c->getGlobalTile(p2)->propmask & TP_SOLID)
+        //c = game->getCellCoords(p2.x,p2.y,p2.z);
+        if(game->getTile(p2)->propmask & TP_SOLID)
         {
             moveCost = 0;
         }

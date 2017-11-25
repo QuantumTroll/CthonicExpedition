@@ -185,17 +185,36 @@ static Float3 mulFloat3(Float3 a, float c)
 {
     return Float3{c*a.x,c*a.y,c*a.z};
 }
-/* // Do I need these booleans? This is already stored in world.mask
-typedef struct {
-    int is_player_controlled;
-} IsPlayerControlled;
 
-typedef struct {
-    int can_move;
-} CanMove;*/
+
+typedef enum
+{
+    DIR_NONE = 0,
+    DIR_WEST = 1 << 0,
+    DIR_EAST = 1 << 1,
+    DIR_NORTH = 1 << 2,
+    DIR_SOUTH = 1 << 3,
+    DIR_UP = 1 << 4,
+    DIR_DOWN = 1 << 5
+}Direction;
+
+static Direction reverse(Direction dir)
+{
+    switch(dir){
+        case DIR_NONE: return DIR_NONE;
+        case DIR_WEST: return DIR_EAST;
+        case DIR_EAST: return DIR_WEST;
+        case DIR_NORTH: return DIR_SOUTH;
+        case DIR_SOUTH: return DIR_NORTH;
+        case DIR_UP: return DIR_DOWN;
+        case DIR_DOWN: return DIR_UP;
+        default: return DIR_NONE;
+    }
+}
 
 typedef struct {
     int tex;
+    int tex_side;
 } IsVisible;
 
 typedef struct {
@@ -218,6 +237,8 @@ public:
     World(){}
     entity_t createEntity();
     void destroyEntity(entity_t e);
+    
+    void saveEntity(entity_t ent, FILE * f);
 };
 
 
@@ -296,5 +317,8 @@ static std::vector<PosInt> getStraightPath(PosInt from, PosInt to)
     
     return p;
 }
+
+static float frand(float xmin, float xmax) { return (xmin+(xmax-xmin)*(float)random()/(float)RAND_MAX); }
+
 
 #endif /* Common_h */
