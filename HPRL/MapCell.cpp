@@ -28,6 +28,16 @@ MapTile * MapCell::getTile(PosInt p)
 {
     return &tiles[p.z][p.x][p.y];
 }
+/*
+float MapCell::wasSeen(MapTile* tile){ return tile->wasSeen;}
+
+void MapCell::setWasSeen(MapTile* tile, float light)
+{
+    if(wasSeen(tile) < light)
+        tile->wasSeen=light;
+}*/
+
+
 
 int MapCell::isInside(Float3 p)
 {
@@ -198,15 +208,13 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             tile->tex = 2;
             tile->tex_surface = 2;
             break;
-        case TT_RAMP:
-            tile->propmask = (TileProp)( tile->propmask | TP_ISTRANSPARENT | TP_RAMP);
-            break;
     }
 }
 
 void MapCell::initTile(int x, int y, int z)
 {
     setTileType(x,y,z,TT_ROCK1);
+    tiles[z][x][y].wasSeen = -1;
 }
 
 // takes info from overworld and translates it into local topology

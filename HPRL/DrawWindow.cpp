@@ -202,33 +202,51 @@ void DrawWindow::drawTiles() {
             {
                 int zm = z - depth;
             
-                // check if tile is viewable and player can see it
+                // check if tile is viewable
                 MapTile * tile = game->getTile(x,y,zm);
-                if( tile->propmask & TP_ISVISIBLE && game->visibility(p,{x,y,zm})>0)
-                {
 
-                    //printf("depth was %d\n",depth);
-                    Float3 tp = PosInt2Float3({x,y,zm}); //getFloat3AtTile(x, y);
-                    
-                    tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
-                    
-                    float q = 0.49;
-                    //  printf("tl");
-                    float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
-                    // printf("tr");
-                    float tr = fmin(1,game->lighting(sumFloat3(tp,{q,q,0})));
-                    // printf("br");
-                    float br = fmin(1,game->lighting(sumFloat3(tp,{q,-q,0})));
-                    // printf("bl");
-                    float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));
-                    
-                    if (depth== 0){
-                        drawTile(i,j,tile->tex,tl,tr,br,bl);
-                    }else {
-                        drawTile(i,j,tile->tex_surface,tl,tr,br,bl);
+                if( tile->propmask & TP_ISVISIBLE)
+                {
+                    //  and player can see it
+                    if(game->visibility(p,{x,y,zm})>0)
+                    {
+                        
+                        //printf("depth was %d\n",depth);
+                        Float3 tp = PosInt2Float3({x,y,zm}); //getFloat3AtTile(x, y);
+                        
+                        tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
+                        
+                        float q = 0.49;
+                        //  printf("tl");
+                        float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
+                        // printf("tr");
+                        float tr = fmin(1,game->lighting(sumFloat3(tp,{q,q,0})));
+                        // printf("br");
+                        float br = fmin(1,game->lighting(sumFloat3(tp,{q,-q,0})));
+                        // printf("bl");
+                        float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));
+                                                
+                        if (depth== 0){
+                            drawTile(i,j,tile->tex,tl,tr,br,bl);
+                        }else {
+                            drawTile(i,j,tile->tex_surface,tl,tr,br,bl);
+                        }
+                        depth = depth_max;
+                        float light = (tl+tr+br+bl)*0.25;
+                        game->setWasSeen(tile,light);
+                    }else if(game->wasSeen(tile) > 0){ //if outside LoS, check memory, draw from memory
+                        float l = game->wasSeen(tile);
+                        if (depth== 0){
+                            drawTile(i,j,tile->tex,l,l,l,l);
+                            drawTile(i,j,memorytex,l,l,l,l);
+                        }else if(depth == 1){
+                            drawTile(i,j,tile->tex_surface,l,l,l,l);
+                            drawTile(i,j,memorytex,l,l,l,l);
+                        }
+                        
                     }
-                    depth = depth_max;
-                } //TODO: if outside LoS, check memory, draw from memory
+                }
+                
             }
         }
     }

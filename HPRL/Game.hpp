@@ -70,7 +70,7 @@ private:
     float throwFlare();
     float jump();
     void toggleLook();
-    void toggleClimb();
+    float toggleClimb();
     void heal(float timestep);
     float useBandage();
 
@@ -78,6 +78,7 @@ private:
 
     void unloadCells();
     void loadCells();
+    
     
 public:
     Game(World* w);
@@ -96,17 +97,24 @@ public:
     int getCellSizeXY(){return cellSizeXY;}
     int getCellSizeZ(){return cellSizeZ;}
     
-    // let DrawWindow ask for any cell
+    // let DrawWindow and others ask for any cell.
     MapCell* getCellatCoords(int x, int y, int z);
     MapCell* getCell(int i, int j, int k) { return cell[i][j][k]; }
 // returns the coordinates of the map cell for given global coords    
     PosInt getCellCoords(int x, int y, int z);
     PosInt getCellCoords(PosInt p) {return getCellCoords(p.x,p.y,p.z);}
     
+    float wasSeen(MapTile* tile);
+    void setWasSeen(MapTile* tile, float light);
+
+    
+    
     MapTile* getTile(int x, int y, int z);
     MapTile* getTile(float x, float y, float z);
     MapTile* getTile(PosInt p);
     MapTile* getTile(Float3 p);
+    
+    
     
     std::deque<std::string> getLog() { return log; }
     void addToLog(std::string str);

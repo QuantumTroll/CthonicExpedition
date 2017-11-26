@@ -19,7 +19,8 @@ typedef enum
     TT_ROCK1=0,
     TT_AIR=1<<0,
     TT_COLUMN=1<<1,
-    TT_RAMP=1<<2,
+    TT_SCREE=1<<2,
+    TT_ICE=1<<3
 }TileType;
 
 typedef enum
@@ -47,6 +48,7 @@ typedef struct
     int tex_surface;
     char * mat_name;
     char * mat_description;
+    float wasSeen;
 }MapTile;
 
 class MapCell
@@ -70,6 +72,10 @@ private:
 public:
     MapTile* getGlobalTile(PosInt p);
     MapTile* getGlobalTile(int x, int y, int z);
+    
+    // these are found in Game
+   // float wasSeen(MapTile* tile);
+   // void setWasSeen(MapTile* tile, float light);
     
     void setTileType(PosInt p, TileType tt);
     void setTileType(int x, int y, int z, TileType tt);

@@ -52,7 +52,7 @@ void Game::init()
     world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_OMNILIGHT;
   //  world->is_player_controlled[player].is_player_controlled = 1;
   //  world->is_visible[player].is_visible = 1;
-    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*2.5)};
+    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5)};
     world->velocity[player] = {0,0,0};
     world->is_visible[player].tex = 265; // some thing
     world->is_visible[player].tex_side = 265; // some thing
@@ -191,7 +191,7 @@ void Game::doSystems()
             timeStep = movement->input(world, input);
         }else if(input & KEY_CLIMB)
         {
-            toggleClimb();
+            timeStep = toggleClimb();
         }else if(input & KEY_INVENTORY)
         {
             displayInventory();
@@ -426,25 +426,45 @@ void Game::toggleLook()
     }
 }
 
-void Game::toggleClimb()
+float Game::toggleClimb()
 {
-    // check surrounding tiles. Is there a grippable one? If so, grip it.
-    PosInt p = Float32PosInt(world->position[player]);
-    
+    float time = 0;
     if(!(world->move_type[player] & MOV_CLIMB))
     {
+        if(pc.energy < 0)
+        {
+            addToLog("You don't have the energy to grab a hold");
+            return 0;
+        }
+        // check surrounding tiles. Is there a grippable one? If so, grip it.
+        PosInt p = Float32PosInt(world->position[player]);
         if( movement->isClimbable(p))
         {
-            world->move_type[player] = MOV_CLIMB;
-            world->position[player] = PosInt2Float3(p);
-            addToLog("You start to climb");
+            if( normFloat3(world->velocity[player]) > 2)
+            {
+                addToLog("You're falling too fast, but manage to slow down.");
+                // v = v^ * 0.5*|v|
+                world->velocity[player] = mulFloat3(normaliseFloat3(world->velocity[player]),normFloat3(world->velocity[player])*0.5);
+                pc.energy -= 20;
+                time += 1;
+            }else {
+                world->move_type[player] = MOV_CLIMB;
+                world->position[player] = PosInt2Float3(p);
+                addToLog("You start to climb");
+                time += 1;
+            }
         }else
+        {
             addToLog("You can't find anything to grip");
+            time += 1;
+        }
     }else
     {
         addToLog("You let go");
         world->move_type[player] = MOV_FREE;
+        time += 1;
     }
+    return time;
 }
 
 float Game::dropFlare()
@@ -521,7 +541,7 @@ float Game::jump()
     world->position[look] = PosInt2Float3_rounded(Float32PosInt(world->position[look]));
     
     world->move_type[player] = MOV_FREE;
-    Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
+    Float3 delta = diffFloat3(world->position[look], world->position[player]);
     float len = fmin(normFloat3(delta), 1.5); //TODO: use player's str or jump stat
     delta = mulFloat3(normaliseFloat3(delta),len);
     world->velocity[player] = {delta.x,delta.y,delta.z};
@@ -533,7 +553,7 @@ float Game::jump()
 
 void Game::collision(entity_t ent, float dV)
 {
-    printf("collision %d %f\n", ent, dV);
+    //printf("collision %d %f\n", ent, dV);
     // right now, player is the only entity that cares about this.
     //TODO: Should make health energy etc a bunch of components.
     if(ent == player)
@@ -768,4 +788,12 @@ MapTile* Game::getTile(PosInt p)
 MapTile* Game::getTile(Float3 p)
 {
     return getTile(Float32PosInt_rounded(p));
+}
+
+float Game::wasSeen(MapTile* tile){ return tile->wasSeen;}
+
+void Game::setWasSeen(MapTile* tile, float light)
+{
+    if(wasSeen(tile) < light)
+        tile->wasSeen=light;
 }

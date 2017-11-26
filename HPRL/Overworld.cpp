@@ -30,7 +30,7 @@ Overworld::Overworld()
     }
     
     // build cave network
-    initCaveNode(&root,{1,1,1}, NULL);
+    initCaveNode(&root,{1,1,OWdepth-2}, NULL);
     buildCaverns(&root, 10);
 }
 

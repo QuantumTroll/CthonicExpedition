@@ -22,6 +22,8 @@ class DrawWindow : public Fl_Gl_Window {
     World* world;
     Game* game;
     int mask;
+    
+    int memorytex = 7;
 
     std::deque<std::string> log;
     

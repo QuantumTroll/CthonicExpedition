@@ -82,7 +82,7 @@ private:
     int OWwidth = 30;
     float length_per_cavelimb = 3; // TODO: relate number of branches per km to geology
     float verticality_bias = 0.3;  // TODO: relate direction of branches to geology
-    float branches_per_node = 1.5;
+    float branches_per_node = 1.8;
     
     // cave cells. is a 3d array. Starts with root at ???
     MCInfo *** cells;
