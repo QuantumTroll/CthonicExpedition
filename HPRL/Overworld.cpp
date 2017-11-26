@@ -45,7 +45,10 @@ void Overworld::initCaveNode(CaveNode *cn, PosInt p, CaveNode *parent)
 void Overworld::buildCaverns(CaveNode *current, int depth)
 {
     if(depth == 0)
+    {
+        printf("cave end point at %d %d %d\n",current->p.x,current->p.y,current->p.z);
         return;
+    }
     
     depth--;
     
@@ -89,6 +92,8 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
             continue;
         }
         
+        printf("tunnel from %d %d %d to %d %d %d\n",from.x,from.y,from.z,next.x,next.y,next.z);
+        
         //next is now the coordinates of the next cell. Create a node of it.
         current->children[i] = (CaveNode*) malloc(sizeof(CaveNode));
         initCaveNode(current->children[i],next,current);
@@ -121,6 +126,9 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
     // get cells orientation
     PosInt pa = a->pos;
     PosInt pb = b->pos;
+    
+    
+    printf("%d %d %d leads to %d %d %d\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
     
     //TODO: add logic that detects duplicate connections and offsets them
  
@@ -172,7 +180,7 @@ MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
 {
     MCInfo info = cells[gz][gx][gy];
     
-    printf("getting MC info for %d %d %d\n",gx,gy,gz);
+  //  printf("getting MC info for %d %d %d\n",gx,gy,gz);
     
     // change type according to something?
     // entrance

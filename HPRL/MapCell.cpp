@@ -172,6 +172,9 @@ void MapCell::setTileType(PosInt p, TileType tt)
 
 void MapCell::setTileType(int x, int y, int z, TileType tt)
 {
+    if(x < 0 || x >= sizexy || y < 0 || y >= sizexy || z < 0 || z >= sizez )
+        return;
+    
     MapTile * tile = &tiles[z][x][y];
     
     switch(tt)
@@ -223,11 +226,11 @@ void MapCell::genLocalDefault(MCInfo info)
     
     // carve out a small center
     int i,j,k;
-    for(i=sizexy/4; i<3*sizexy/4; i++)
+    for(i=2*sizexy/5; i<3*sizexy/5; i++)
     {
-        for(j=sizexy/4; j<3*sizexy/4; j++)
+        for(j=2*sizexy/4; j<3*sizexy/5; j++)
         {
-            for(k=sizez/4; k<3*sizez/4; k++)
+            for(k=2*sizez/5; k<3*sizez/5; k++)
             {
                 if(i % 5 == 0 && j % 3 == 0)
                     setTileType(i,j,k,TT_COLUMN);
@@ -241,6 +244,7 @@ void MapCell::genLocalDefault(MCInfo info)
 
     for(i=0; i<info.numConnections; i++)
     {
+        printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info.connection[i].dir);
         PosInt start;
         switch(info.connection[i].dir)
         {

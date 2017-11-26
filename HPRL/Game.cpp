@@ -45,6 +45,7 @@ void World::saveEntity(entity_t ent, FILE *f)
 void Game::init()
 {
     time = 0;
+    srandom(2);
     
     // create a player entity
     player = world->createEntity();
@@ -88,7 +89,7 @@ void Game::init()
         for(j=0; j<3; j++)
             for(k=0; k<3; k++){
                 cell[i][j][k] = new MapCell(cellSizeXY,cellSizeZ,cellCoords.x+i-1,cellCoords.y+j-1,cellCoords.z+k-1,overworld);
-                printf("cell %d %d %d has coords %d %d %d\n",i,j,k,i,j,k);
+              //  printf("cell %d %d %d has coords %d %d %d\n",i,j,k,i,j,k);
             }
     
     //TEST:
@@ -120,6 +121,7 @@ void Game::addInput(char inchar)
         case 'c': input = KEY_CLIMB; break;
         case 'i': input = KEY_INVENTORY; break;
         case 'b': input = KEY_BANDAGE; break;
+        case 'o': input = KEY_ORIENTEER; break;
         default: input = KEY_NONE;
     }
     
@@ -159,7 +161,7 @@ void Game::doSystems()
         return;
     Key input;
     float timeStep = 0;
-    printf("%f %f %f\n",world->position[player].x,world->position[player].y,world->position[player].z);
+    //printf("%f %f %f\n",world->position[player].x,world->position[player].y,world->position[player].z);
     // process inputs
     while(! inputs.empty())
     {
@@ -196,6 +198,11 @@ void Game::doSystems()
         }else if(input & KEY_BANDAGE)
         {
             timeStep = useBandage();
+        }else if(input & KEY_ORIENTEER)
+        {
+            char s[32];
+            sprintf(s,"You are in cell %d %d %d",cellCoords.x,cellCoords.y,cellCoords.z);
+            addToLog(s);
         }
     }
     // step simulation
@@ -211,14 +218,13 @@ void Game::doSystems()
     if(manhattanPosInt(cellCoords, currentCellCoords) > 0)
     {
         // offload old cells, load new cells
-        printf("player at %f %f %f, UN/LOAD CELLS\n",world->position[player].x,world->position[player].y,world->position[player].z);
-        
+        printf("player at cell %d %d %d, UN/LOAD CELLS\n",currentCellCoords.x,currentCellCoords.y,currentCellCoords.z);
+
         int i, j;
         
         // move cells in local matrix
         if(cellCoords.x < currentCellCoords.x) // moved right
         {
-            printf("moved right\n");
             // unload cell[0][*][*]
             for(i=0;i<3;i++)
                 for(j=0;j<3;j++)
@@ -266,7 +272,6 @@ void Game::doSystems()
                 }
         }else if(cellCoords.y < currentCellCoords.y) // moved north
         {
-            printf("moved north\n");
             // unload cell[*][0][*]
             for(i=0;i<3;i++)
                 for(j=0;j<3;j++)
@@ -409,7 +414,7 @@ void Game::toggleLook()
         world->is_visible[look].tex_side = 3;
         world->position[look] = world->position[player];
         world->velocity[look] = world->velocity[player];
-        printf("%d %d %d\n",(int)(world->position[look].x+0.5),(int)(world->position[look].y+0.5),(int)(world->position[look].z+0.5));
+       // printf("%d %d %d\n",(int)(world->position[look].x+0.5),(int)(world->position[look].y+0.5),(int)(world->position[look].z+0.5));
         // remove player control from player
         world->mask[player] = world->mask[player] ^ COMP_IS_PLAYER_CONTROLLED;
         world->move_type[look] = MOV_FLOAT;
