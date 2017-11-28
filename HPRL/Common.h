@@ -33,7 +33,8 @@ typedef enum
     COMP_OMNILIGHT = 1 << 5,
     COMP_ANCHOR = 1 << 6,
     COMP_BANDAGE = 1 << 7,
-    COMP_ROPE = 1 << 8
+    COMP_ROPE = 1 << 8,
+    COMP_COUNTER = 1 << 9
 } Component;
 
 typedef enum
@@ -52,7 +53,8 @@ typedef enum
     KEY_CLIMB = 1 << 10,
     KEY_INVENTORY = 1 << 11,
     KEY_BANDAGE = 1 << 12,
-    KEY_ORIENTEER = 1 << 13
+    KEY_ORIENTEER = 1 << 13,
+    KEY_CLOSEEYES = 1 << 14
 } Key;
 
 typedef enum
@@ -65,11 +67,24 @@ typedef enum
     MOV_SWIM = 1 << 4
 } MoveType;
 
+typedef enum
+{
+    CNT_FLARE,   // destroyed when 0
+    CNT_ELECTRIC // switched off when 0
+} CounterType;
+
 typedef struct
 {
     int type;
     float time;
 } Event;
+
+typedef struct
+{
+    int max;
+    float count;
+    CounterType type;
+} Counter;
 
 
 typedef struct {
@@ -229,13 +244,13 @@ public:
     
     Float3 position[maxEntities];
     Float3 velocity[maxEntities];
-  //  IsPlayerControlled is_player_controlled[maxEntities];
-  //  CanMove can_move[maxEntities];
+    
     IsVisible is_visible[maxEntities];
     LightSource light_source[maxEntities];
     MoveType move_type[maxEntities];
+    Counter counter[maxEntities];
     
-    World(){}
+    World();
     entity_t createEntity();
     void destroyEntity(entity_t e);
     
@@ -320,6 +335,6 @@ static std::vector<PosInt> getStraightPath(PosInt from, PosInt to)
 }
 
 static float frand(float xmin, float xmax) { return (xmin+(xmax-xmin)*(float)random()/(float)RAND_MAX); }
-
+static int irand(int imin, int imax) { return random()%(imax-imin+1)+imin; }
 
 #endif /* Common_h */

@@ -10,7 +10,7 @@
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
 #include <FL/gl.h>
-#include <FL/glut.h>
+#include <FL/glut.H>
 #include <math.h>
 
 #include "DrawWindow.hpp"
@@ -25,6 +25,7 @@ DrawWindow::DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g):F
     game = g;
     mask = COMP_IS_VISIBLE;
     const char filename[200]="/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/art/tileset1.png";
+    //const char filename[200]="art/tileset1.png";
     //"HPRL/art/hyptosis_tile-art-batch-1";
     unsigned error = lodepng::decode(tileset,ts_width,ts_height,filename);
     
@@ -57,7 +58,8 @@ void DrawWindow::draw() {
         
         glViewport(0, 0, w(), h());
         glMatrixMode(GL_PROJECTION);
-        glClearColor(0, 0, 0, 1);
+        //glClearColor(1, 1, .2, 1);
+	    glClearColor(0,0,0,1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glLoadIdentity();
         
@@ -91,8 +93,6 @@ void DrawWindow::draw() {
     
     drawBottomPanel();
     
-    //TODO: drawTopRightCorner(); // what goes here?
-    
     glPopMatrix();
 }
 
@@ -100,14 +100,7 @@ void DrawWindow::draw() {
 Float3 DrawWindow::getFloat3AtTile(int i, int j)
 {
     Float3 p;
-    /* // Entity's position
-     int x = (int)(world->position[ent].x+.5);
-     int y = (int)(world->position[ent].y+.5);
-     int z = (int)(world->position[ent].z+.5);
-     
-     // the tile on which to draw it
-     int i = game->getLookAt().x-x+tiles_on_screen_x/2;
-     int j = game->getLookAt().y-y+tiles_on_screen_y/2; */
+    
     p.x = game->getLookAt().x+i-tiles_on_screen_x/2;
     p.y = game->getLookAt().y+j-tiles_on_screen_y/2;
     p.z = game->getLookAt().z;
@@ -181,7 +174,7 @@ void DrawWindow::drawTiles() {
     //TODO: pull this out into a function that can be reused for side panel?
     
     PosInt p = Float32PosInt(world->position[game->getPlayerEntity()]);
-  //  int cx = 0, cy = 0, cz = 0; // cell offset we're drawing from
+    
     int z = game->getLookAt().z;
     int px = game->getLookAt().x-tiles_on_screen_x/2;
     int py = game->getLookAt().y-tiles_on_screen_y/2;
@@ -210,9 +203,7 @@ void DrawWindow::drawTiles() {
                     //  and player can see it
                     if(game->visibility(p,{x,y,zm})>0)
                     {
-                        
-                        //printf("depth was %d\n",depth);
-                        Float3 tp = PosInt2Float3({x,y,zm}); //getFloat3AtTile(x, y);
+                        Float3 tp = PosInt2Float3({x,y,zm});
                         
                         tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                         
@@ -271,12 +262,10 @@ void DrawWindow::drawWorld()
     {
         if(world->mask[ent] & mask) 
         {
-            // TODO: fix with regards to side-panel
             // check whether we're on the same z-level
             int zdiff = game->getLookAt().z - (int)(world->position[ent].z+.5);
             if( zdiff < 0 || zdiff > 6)
             {
-             //   printf("entity %d not drawn: %d - %d = %d\n",ent,game->getLookAt().z,(int)(world->position[ent].z+.5),zdiff);
                 continue;
             }
             
@@ -317,42 +306,18 @@ void DrawWindow::drawWorld()
                     drawTile(i,j,tex,tl,tr,br,bl);
                 }
             }
-            
-            // TODO: draw it in side panel?
-            
         }
     }
-
 }
 
 // draw side-panel. 3 parts: vertical cross section in x, in y, and "info" pane
 void DrawWindow::drawSidePanel()
 {
     
-    
     // panel coordinates are:
     // [tiles_on_screen_x+1, tiles_on_screen_y-tilesWide*3+1] to
     // [tiles_on_screen_x+2+tilesWide, tiles_on_screen_y - 1 ]
-    
-    /*
-    int i,j,depth, depth_max = 8;
-    for(i = 0; i < tilesWide+1; i++)
-    {
-        // get world x coordinate
-        // get the cell x offset
-        for(j=0; j < tilesWide*3-1; j++)
-        {
-            // get world z coordinate
-            // get the cell z offset
-            
-           // for(depth=0; depth<depth_max; depth++)
-           // {
-                // check if tile is viewable and player can see it
-                drawTile(tiles_on_screen_x+1+i,tiles_on_screen_y-tilesWide*3+j+1,88,1,1,1,1,1,0);
-           // }
-        }
-    }*/
-    
+  
     drawCrossX();
     drawWorldX();
     drawCrossY();
@@ -452,36 +417,50 @@ void DrawWindow::drawCrossX()
             for(depth = 0; depth < max_depth; depth++)
             {
                 int ym = y - depth;
-                float size = 1;
+                
                 MapTile * tile = game->getTile(x,ym,z);
                 // check if tile is viewable and player can see it
-                if( tile->propmask & TP_ISVISIBLE && game->visibility(p,{x,ym,z})>0)
-                {
-                    Float3 tp = PosInt2Float3({x,ym,z}); //getFloat3AtTile(x, y);
-                    
-                    tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
-                    
-                    float q = 0.49;
-                    //  printf("tl");
-                    float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,q})));
-                    // printf("tr");
-                    float tr = fmin(1,game->lighting(sumFloat3(tp,{q,0,q})));
-                    // printf("br");
-                    float br = fmin(1,game->lighting(sumFloat3(tp,{q,0,-q})));
-                    // printf("bl");
-                    float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,-q})));
-                    
-                    // tl = 1;
-                    // br = 1;
-                    if (depth== 0){
-                        drawTile(i+xOffset,j+yOffset,tile->tex,tl,tr,br,bl);
-                    }else {
-                        drawTile(i+xOffset,j+yOffset,tile->tex_surface,tl,tr,br,bl);
-                    }
-                    
-                    depth = max_depth;
-                } //TODO: if outside LoS, check memory, draw from memory
                 
+                if( tile->propmask & TP_ISVISIBLE)
+                {
+                    //  and player can see it
+                    if(game->visibility(p,{x,ym,z})>0)
+                    {
+                        Float3 tp = PosInt2Float3({x,ym,z}); //getFloat3AtTile(x, y);
+                        
+                        tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
+                        
+                        float q = 0.49;
+                        //  printf("tl");
+                        float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,q})));
+                        // printf("tr");
+                        float tr = fmin(1,game->lighting(sumFloat3(tp,{q,0,q})));
+                        // printf("br");
+                        float br = fmin(1,game->lighting(sumFloat3(tp,{q,0,-q})));
+                        // printf("bl");
+                        float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,-q})));
+                        
+                        // tl = 1;
+                        // br = 1;
+                        if (depth== 0){
+                            drawTile(i+xOffset,j+yOffset,tile->tex,tl,tr,br,bl);
+                        }else {
+                            drawTile(i+xOffset,j+yOffset,tile->tex_surface,tl,tr,br,bl);
+                        }
+                        
+                        depth = max_depth;
+                    } else if(game->wasSeen(tile) > 0){ //if outside LoS, check memory, draw from memory
+                        float l = game->wasSeen(tile);
+                        if (depth== 0){
+                            drawTile(i+xOffset,j+yOffset,tile->tex,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                        }else if(depth == 1){
+                            drawTile(i+xOffset,j+yOffset,tile->tex_surface,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                        }
+                        
+                    }
+                }
             }
         }
     }
@@ -559,9 +538,9 @@ void DrawWindow::drawCrossY()
     // top half draws along Y axis at fixed X
     int xOffset = tiles_on_screen_x + 1;
     int yOffset = tiles_on_screen_y - tilesWide*1.5 + 2;
-    MapCell * cell;
+    
     PosInt p = Float32PosInt(world->position[game->getPlayerEntity()]);
-    int cx = 0, cy = 0, cz = 0; // cell offset we're drawing from
+    
     int pz = game->getLookAt().z-(int)tilesWide*2/3-1;
     int px = game->getLookAt().x;
     int py = game->getLookAt().y-tilesWide/2;
@@ -582,9 +561,11 @@ void DrawWindow::drawCrossY()
                 
                 MapTile * tile = game->getTile(xm,y,z);
                 //cell = game->getCellCoords(x,y,z);
-                // check if tile is viewable and player can see it
-                if( tile->propmask & TP_ISVISIBLE && game->visibility(p,{xm,y,z})>0)
+                if( tile->propmask & TP_ISVISIBLE)
                 {
+                    //  and player can see it
+                    if(game->visibility(p,{xm,y,z})>0)
+                    {
                     Float3 tp = PosInt2Float3({xm,y,z}); //getFloat3AtTile(x, y);
                     
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
@@ -608,8 +589,18 @@ void DrawWindow::drawCrossY()
                     }
                     
                     depth = max_depth;
-                } //TODO: if outside LoS, check memory, draw from memory
-                
+                    } else if(game->wasSeen(tile) > 0){ //if outside LoS, check memory, draw from memory
+                        float l = game->wasSeen(tile);
+                        if (depth== 0){
+                            drawTile(i+xOffset,j+yOffset,tile->tex,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                        }else if(depth == 1){
+                            drawTile(i+xOffset,j+yOffset,tile->tex_surface,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                        }
+                        
+                    }
+                }
             }
         }
     }
@@ -622,13 +613,13 @@ void DrawWindow::drawBottomPanel()
     int i,j;
     
     // Paint "panel"
-    for(i = 0; i < tilesWide*4-1; i++)
+    /*for(i = 0; i < tilesWide*4-1; i++)
     {
         for(j=0; j < tilesWide; j++)
         {
             drawTile(1+i,j,11,.51,.51,.51,.51);
         }
-    }
+    }*/
     // draw log
     // TODO: let player toggle longer log with a button press
     log = game->getLog();
@@ -713,11 +704,27 @@ int DrawWindow::handle(int event) {
     }
 }
 
+// #define STROKE // GLUT is shit. Let's implement a more serious text renderer. Later. Big TODO here.
+
 void DrawWindow::print_text(const char* str, float x, float y)
 {
-    glRasterPos2f(x, y);
+    glPushMatrix();
+
+    glDisable(GL_LIGHTING);
+    glDisable(GL_BLEND);
+    glColor3f(.8,1,.8);
+#ifndef STROKE
+    glRasterPos3f(x, y,1);
+#else
+    glTranslatef(x,y,0);
+    glScalef(.00025,.00025,1);
+#endif
     print_text(str);
+    glEnable(GL_BLEND);
+    glEnable(GL_LIGHTING);
+    glPopMatrix();
 }
+
 void DrawWindow::print_text2(const char* str, int x, int y)
 {
     print_text(str,x*tile_width,y*tile_height);
@@ -729,7 +736,13 @@ void DrawWindow::print_text(const char * str)
     int i = 0;
     while(s != '\0' && i < 128)
     {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, s);
+	//glTranslatef(0.01,0,0);
+#ifndef STROKE
+      glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, s);
+#else
+        glutStrokeCharacter(GLUT_STROKE_ROMAN,s);
+#endif
+//	glutStrokeCharacter(GLUT_STROKE_ROMAN,s);
         i++;
         s = str[i];
     }

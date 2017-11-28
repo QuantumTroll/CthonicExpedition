@@ -102,6 +102,9 @@ void MapCell::unload(World* w)
 
 void MapCell::load(World* w, int x, int y, int z)
 {
+    world = w;
+    printf("loading to world %p\n",world);
+    
     int i,j,k;
     gx = x; gy = y; gz = z;
     
@@ -171,8 +174,7 @@ MapCell::MapCell(int sxy, int sz, int x, int y, int z, Overworld* ow)
             }
         }
     }
-    // generate caves and shit, also according to overworld
-    generateLocalTopology();
+   
 }
 
 void MapCell::setTileType(PosInt p, TileType tt)
@@ -182,7 +184,7 @@ void MapCell::setTileType(PosInt p, TileType tt)
 
 void MapCell::setTileType(int x, int y, int z, TileType tt)
 {
-    if(x < 0 || x >= sizexy || y < 0 || y >= sizexy || z < 0 || z >= sizez )
+    if(x < 0 || x >= sizexy || y < 0 || y >= sizexy || z < 0 || z >= sizez )
         return;
     
     MapTile * tile = &tiles[z][x][y];
@@ -208,6 +210,20 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             tile->tex = 2;
             tile->tex_surface = 2;
             break;
+        case TT_ICE:
+            tile->propmask = TP_NONE;
+            tile->propmask = (TileProp)(TP_SOLID | TP_SLIPPERY | TP_ISVISIBLE | TP_ISTRANSPARENT);
+            tile->temperature = -5;
+            tile->tex = 12;
+            tile->tex_surface = 13;
+            break;
+        case TT_SCREE:
+            tile->propmask = TP_NONE;
+            tile->propmask = (TileProp)(TP_SOLID | TP_GRIPPABLE | TP_ISVISIBLE | TP_SLIPPERY);
+            tile->temperature = 5;
+            tile->tex = 14;
+            tile->tex_surface = 16;
+            break;
     }
 }
 
@@ -224,19 +240,149 @@ void MapCell::generateLocalTopology()
     
     switch(info.type)
     {
+        case(MCT_ENTRANCE): genLocalEntrance(info); break;
+        case(MCT_GLACIER): genLocalGlacier(info); break;
+        case(MCT_GLACIERBOTTOM): genLocalGlacierBottom(info); break;
+        
         default: genLocalDefault(info);
     }
 }
 
-void MapCell::genLocalDefault(MCInfo info)
+
+
+void MapCell::genTunnel_round(PosInt start, PosInt end, int diam)
+{
+    //genTunnel_square(start, end, diam);
+    setTileType(start,TT_AIR);
+    
+    std::vector<PosInt> path = getStraightPath(start, end);
+    path.push_back(start); // don't forget to dig out the start...
+    
+    int j, k,l,m;
+    
+    float rad = diam*0.5;
+    
+    // traverse the path and set the tiles to air
+    for(j=0;j<path.size(); j++)
+    {
+        PosInt pos = path[j];
+        float nrad = rad*frand(0.8,1.2);
+        pos = sumPosInt(pos,{irand(-1,1),irand(-1,1),irand(-1,1)});
+        for(k=0;k<diam;k++)
+        {
+            for(l=0;l<diam;l++)
+            {
+                for(m=0;m<diam;m++)
+                {
+                    pos = sumPosInt(path[j],{k-diam/2,l-diam/2,m-diam/2});
+                    float dist = distFloat3(PosInt2Float3(pos),PosInt2Float3(path[j]));
+                    if(dist < nrad)
+                        setTileType(pos,TT_AIR);
+                }
+            }
+        }
+    }
+}
+
+void MapCell::genTunnel_round_straight(PosInt start, PosInt end, int diam)
+{
+    //genTunnel_square(start, end, diam);
+    setTileType(start,TT_AIR);
+    
+    std::vector<PosInt> path = getStraightPath(start, end);
+    path.push_back(start); // don't forget to dig out the start...
+    
+    int j, k,l,m;
+    
+    float rad = diam*0.5;
+    
+    // traverse the path and set the tiles to air
+    for(j=0;j<path.size(); j++)
+    {
+        PosInt pos = path[j];
+        for(k=0;k<diam;k++)
+        {
+            for(l=0;l<diam;l++)
+            {
+                for(m=0;m<diam;m++)
+                {
+                    pos = sumPosInt(path[j],{k-diam/2,l-diam/2,m-diam/2});
+                    float dist = distFloat3(PosInt2Float3(pos),PosInt2Float3(path[j]));
+                    if(dist < rad)
+                        setTileType(pos,TT_AIR);
+                }
+            }
+        }
+    }
+}
+
+
+void MapCell::genTunnel_square(PosInt start, PosInt end, int diam)
+{
+    setTileType(start,TT_AIR);
+    
+    std::vector<PosInt> path = getStraightPath(start, end);
+    
+    int j, k,l,m;
+    
+    // traverse the path and set the tiles to air
+    for(j=0;j<path.size(); j++)
+    {
+        PosInt pos = path[j];
+        for(k=0;k<diam;k++)
+        {
+            for(l=0;l<diam;l++)
+            {
+                for(m=0;m<diam;m++)
+                {
+                    pos = sumPosInt(path[j],{k-diam/2,l-diam/2,m-diam/2});
+                    setTileType(pos,TT_AIR);
+                }
+            }
+        }
+    }
+}
+
+void MapCell::genLocalGlacier(MCInfo info)
+{
+    int i,j,k;
+    // everything is ice
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=0; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ICE);
+            }
+        }
+    }
+    
+    // should be no tunnels in the glacier, but:
+    genStandardConnections(info);
+}
+
+
+void MapCell::genLocalGlacierBottom(MCInfo info)
 {
     // everything starts out as rock
-    
-    // carve out a small center
     int i,j,k;
+    // the top half of the map is ice
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=3*sizez/5; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ICE);
+            }
+        }
+    }
+    // carve out a small center
+    
     for(i=2*sizexy/5; i<3*sizexy/5; i++)
     {
-        for(j=2*sizexy/4; j<3*sizexy/5; j++)
+        for(j=2*sizexy/5; j<3*sizexy/5; j++)
         {
             for(k=2*sizez/5; k<3*sizez/5; k++)
             {
@@ -248,11 +394,61 @@ void MapCell::genLocalDefault(MCInfo info)
         }
     }
     
-    // for every connection, carve a path to the center
+    genStandardConnections(info);
+}
 
+void MapCell::genLocalEntrance(MCInfo info)
+{
+    // everything starts out as rock
+    int i,j,k;
+    // the top half of the map is ice
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=3*sizez/5; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ICE);
+            }
+        }
+    }
+    // carve out a small center
+    
+    for(i=2*sizexy/5; i<3*sizexy/5; i++)
+    {
+        for(j=2*sizexy/5; j<3*sizexy/5; j++)
+        {
+            for(k=2*sizez/5; k<3*sizez/5; k++)
+            {
+                if(i % 5 == 0 && j % 3 == 0)
+                    setTileType(i,j,k,TT_COLUMN);
+                else
+                    setTileType(i,j,k,TT_AIR);
+            }
+        }
+    }
+    genStandardConnections(info);
+    
+    //TODO: add crash site
+    PosInt crashPos = {sizexy/2,sizexy/2,2*sizez/5};
+    crashPos = sumPosInt(crashPos, {gx*sizexy,gy*sizexy,gz*sizez});
+    
+    printf("world is %p\n",world);
+    entity_t ent1 = world->createEntity();
+    world->mask[ent1] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT;
+    world->position[ent1] =  PosInt2Float3(crashPos);
+    world->is_visible[ent1].tex = 8;
+    world->is_visible[ent1].tex_side = 9;
+    world->light_source[ent1].brightness = 2;
+}
+
+void MapCell::genStandardConnections(MCInfo info, PosInt center)
+{
+    int i;
+    
     for(i=0; i<info.numConnections; i++)
     {
-        printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info.connection[i].dir);
+        //printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info.connection[i].dir);
         PosInt start;
         switch(info.connection[i].dir)
         {
@@ -264,31 +460,40 @@ void MapCell::genLocalDefault(MCInfo info)
             case DIR_WEST: start.x = 0; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
             default: start = {0,0,0};
         }
-        PosInt end = {(int)sizexy/2,(int)sizexy/2,(int)sizez/2};
         
         int size = info.connection[i].size;
         
-        setTileType(start,TT_AIR);
-        
-        std::vector<PosInt> path = getStraightPath(start, end);
-        int j, k,l,m;
-        
-        // traverse the path and set the tiles to air
-        // TODO: pull this out and make into its own function...
-        for(j=0;j<path.size(); j++)
+        genTunnel_round(start, center, size);
+    }
+}
+void MapCell::genStandardConnections(MCInfo info)
+{
+    // for every connection, carve a path to the center
+    PosInt end = {(int)sizexy/2,(int)sizexy/2,(int)sizez/2};
+    genStandardConnections(info, end);
+}
+
+void MapCell::genLocalDefault(MCInfo info)
+{
+    // everything starts out as rock
+    
+    PosInt c = {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
+    
+    // carve out a small center
+    int i,j,k;
+    for(i=2*sizexy/5; i<3*sizexy/5; i++)
+    {
+        for(j=2*sizexy/5; j<3*sizexy/5; j++)
         {
-            PosInt pos = path[j];
-            for(k=0;k<size;k++)
+            for(k=2*sizez/5; k<3*sizez/5; k++)
             {
-                for(l=0;l<size;l++)
-                {
-                    for(m=0;m<size;m++)
-                    {
-                        pos = sumPosInt(path[j],{k-size/2,l-size/2,m-size/2});
-                        setTileType(pos,TT_AIR);
-                    }
-                }
+                if(i % 5 == 0 && j % 3 == 0)
+                    setTileType(i+c.x,j+c.y,k+c.z,TT_COLUMN);
+                else
+                    setTileType(i+c.x,j+c.y,k+c.z,TT_AIR);
             }
         }
     }
+    
+    genStandardConnections(info);
 }

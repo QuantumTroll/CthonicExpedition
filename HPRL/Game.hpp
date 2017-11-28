@@ -40,6 +40,7 @@ private:
     Character pc;
     entity_t player;
     entity_t look;
+    int eyesOpen;
     
     // voxel world
     // a 3d array of cell pointers. We're always in the middle one (1,1,1).
@@ -70,8 +71,11 @@ private:
     float throwFlare();
     float jump();
     void toggleLook();
+    void toggleCloseEyes();
     float toggleClimb();
-    void heal(float timestep);
+    void heal(float timeStep);    
+    void updateCounters(float timeStep);
+    
     float useBandage();
 
     int isOn;

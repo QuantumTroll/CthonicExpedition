@@ -55,6 +55,7 @@ class MapCell
 {
 private:
     Overworld* overworld;
+    World* world;
     
     MapTile* getTile(PosInt p);
 
@@ -65,7 +66,15 @@ private:
     
     MapTile *** tiles;
     
+    void genLocalGlacierBottom(MCInfo info);
+    void genLocalGlacier(MCInfo info);
+    void genStandardConnections(MCInfo info);
+    void genStandardConnections(MCInfo info, PosInt center);
+    void genLocalEntrance(MCInfo info);
     void genLocalDefault(MCInfo info);
+    void genTunnel_square(PosInt start, PosInt end, int diam);
+    void genTunnel_round(PosInt start, PosInt end, int diam);
+    void genTunnel_round_straight(PosInt start, PosInt end, int diam);
     void initTile(int x, int y, int z);
     void generateLocalTopology();
     

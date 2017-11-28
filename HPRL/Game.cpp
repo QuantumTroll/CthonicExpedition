@@ -19,6 +19,14 @@ Game::Game(World* w){
     energy = new EnergySystem(world, &pc, this);
 }
 
+World::World(){
+    entity_t entity;
+    for(entity = 0; entity<maxEntities; entity++)
+    {
+        mask[entity] = COMP_NONE;
+    }
+}
+
 entity_t World::createEntity()
 {
     entity_t entity;
@@ -57,8 +65,10 @@ void Game::init()
     world->is_visible[player].tex = 265; // some thing
     world->is_visible[player].tex_side = 265; // some thing
     world->move_type[player] = MOV_FREE; // default movement mode
-    world->light_source[player].brightness = 2.0; // reduce when not debugging
-    lookAt = Float32PosInt( world->position[player]);//{0,0,0};
+    world->light_source[player].brightness = 1.5; // reduce when not debugging
+    lookAt = Float32PosInt( world->position[player]);
+    
+    eyesOpen = 1;
     
     pc.name="Mary-Sue";
     pc.mood=1;
@@ -78,7 +88,6 @@ void Game::init()
     
     look = 0;
     
-    //TODO: generate "overworld"?
     overworld = new Overworld();
     
     cellCoords = getCellCoords(Float32PosInt_rounded( world->position[player]));
@@ -89,13 +98,9 @@ void Game::init()
         for(j=0; j<3; j++)
             for(k=0; k<3; k++){
                 cell[i][j][k] = new MapCell(cellSizeXY,cellSizeZ,cellCoords.x+i-1,cellCoords.y+j-1,cellCoords.z+k-1,overworld);
+                cell[i][j][k]->load(world,cellCoords.x+i-1,cellCoords.y+j-1,cellCoords.z+k-1);
               //  printf("cell %d %d %d has coords %d %d %d\n",i,j,k,i,j,k);
             }
-    
-    //TEST:
-  //  for(i=0;i<80;i++)
-  //      printf("%d gets cell %d\n",i,getCellCoords(i,66,50).x);
-    
     
     addToLog("You wake up in the test cave. There is no escape.");
     turnOn();
@@ -122,6 +127,7 @@ void Game::addInput(char inchar)
         case 'i': input = KEY_INVENTORY; break;
         case 'b': input = KEY_BANDAGE; break;
         case 'o': input = KEY_ORIENTEER; break;
+        case 'x': input = KEY_CLOSEEYES; break;
         default: input = KEY_NONE;
     }
     
@@ -203,6 +209,9 @@ void Game::doSystems()
             char s[32];
             sprintf(s,"You are in cell %d %d %d",cellCoords.x,cellCoords.y,cellCoords.z);
             addToLog(s);
+        }else if(input & KEY_CLOSEEYES)
+        {
+            toggleCloseEyes();
         }
     }
     // step simulation
@@ -210,6 +219,7 @@ void Game::doSystems()
     energy->exec(timeStep);
     movement->exec(world, timeStep);
     heal(timeStep);
+    updateCounters(timeStep);
     time += timeStep;
     
     //TODO: check if movement brought player in range of cell edge. if so, offload old and load new cells.
@@ -403,6 +413,18 @@ void Game::doSystems()
     turnOff();
 }
 
+void Game::toggleCloseEyes()
+{
+    if(eyesOpen)
+    {
+        addToLog("You close your eyes");
+        eyesOpen = 0;
+    }else {
+        addToLog("You open your eyes");
+        eyesOpen = 1;
+    }
+}
+
 void Game::toggleLook()
 {
     if(look == 0) // turn on look mode
@@ -471,13 +493,17 @@ float Game::dropFlare()
 {
     if(pc.numFlares > 0)
     {
+        pc.numFlares--;
         entity_t flare = world->createEntity();
-        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
+        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
         world->light_source[flare].brightness = 4.0;
         world->is_visible[flare].tex = 4;
         world->is_visible[flare].tex_side = 4;
         world->position[flare] = world->position[player];
         world->velocity[flare] = {0,0,0};
+        world->counter[flare].type = CNT_FLARE;
+        world->counter[flare].max = 15; //lasts for 15 steps
+        world->counter[flare].count = world->counter[flare].max;
         addToLog("You drop a flare");
         return 1;
     }
@@ -487,14 +513,17 @@ float Game::throwFlare()
 {
     if(pc.numFlares > 0)
     {
-        pc.numFlares --;
+        pc.numFlares--;
         entity_t flare = world->createEntity();
-        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY;
+        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
         world->light_source[flare].brightness = 4.0;
         world->position[flare] = world->position[player];
         world->move_type[flare] = MOV_FREE;
         world->is_visible[flare].tex = 4;
         world->is_visible[flare].tex_side = 4;
+        world->counter[flare].type = CNT_FLARE;
+        world->counter[flare].max = 15; //lasts for 15 steps
+        world->counter[flare].count = world->counter[flare].max;
         Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
         float len = fmin(normFloat3(delta), 3); //TODO: use player's strength stat
         delta = mulFloat3(normaliseFloat3(delta),len);
@@ -509,7 +538,7 @@ float Game::useBandage()
     if(pc.numBandages > 0 && pc.bleed > 0)
     {
         addToLog("You use a bandage");
-        pc.numBandages --;
+        pc.numBandages--;
         pc.bleed = fmax(0,pc.bleed - 10);
         if(pc.bleed == 0)
             addToLog("You manage to stop the bleeding");
@@ -570,7 +599,7 @@ void Game::collision(entity_t ent, float dV)
             {
                 pc.armour -= damage;
                 addToLog("You land badly and rip your clothes");
-            }else if( damage < 3 && pc.bruise + damage < pc.maxEnergy) //TODO: relate this "3" to "skin toughness"
+            }else if( damage < 2.5 && pc.bruise + damage < pc.maxEnergy) //TODO: relate this "2.5" to "skin toughness"
             {
                 pc.bruise += damage*5;
                 addToLog("You land badly and knock the wind out of you");
@@ -582,10 +611,31 @@ void Game::collision(entity_t ent, float dV)
     }
 }
 
+void Game::updateCounters(float timeStep)
+{
+    entity_t ent;
+    
+    for(ent = 0; ent<maxEntities; ent++)
+    {
+        if(world->mask[ent] & COMP_COUNTER)
+        {
+            world->counter[ent].count -= timeStep;
+            if(world->counter[ent].count <= 0) // counter runs out!
+            {
+                switch(world->counter[ent].type)
+                {
+                    case CNT_FLARE: world->destroyEntity(ent); break;
+                    case CNT_ELECTRIC: /*TODO: turn off */; break;                    
+                }
+            }
+        }
+    }
+}
+
 void Game::heal(float timeStep)
 {
     float h = pc.healing*timeStep;
-    if(pc.bleed > 0)
+    if(pc.bleed > 0 && frand(0,10) < pc.bleed)
     {
         pc.bleed = fmax(0,pc.bleed - h);
         if(pc.bleed == 0)
@@ -595,10 +645,11 @@ void Game::heal(float timeStep)
         //TODO: this is the ugliest blood I've ever seen.
         else if( world->move_type[player] & MOV_WALK){
             entity_t blood = world->createEntity();
-            world->mask[blood] = COMP_POSITION | COMP_IS_VISIBLE;
+            world->mask[blood] = COMP_POSITION | COMP_IS_VISIBLE | COMP_CAN_MOVE;
             world->position[blood] = world->position[player];
             world->is_visible[blood].tex = 5;
             world->is_visible[blood].tex_side = 6;
+            world->move_type[blood] = MOV_FREE;
         }
             
     }else {
@@ -681,9 +732,11 @@ int Game::pointVisibility(Float3 f, Float3 t)
 
 int Game::visibility(PosInt from, PosInt to)
 {
-    
     if(manhattanPosInt(from, to) == 1)
         return 1;
+ 
+    if(! eyesOpen)
+        return 0;
     
     // step along several lines from from to to. check
     Float3 f = PosInt2Float3(from);

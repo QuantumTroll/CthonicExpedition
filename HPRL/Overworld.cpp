@@ -46,7 +46,7 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
 {
     if(depth == 0)
     {
-        printf("cave end point at %d %d %d\n",current->p.x,current->p.y,current->p.z);
+     //   printf("cave end point at %d %d %d\n",current->p.x,current->p.y,current->p.z);
         return;
     }
     
@@ -92,7 +92,7 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
             continue;
         }
         
-        printf("tunnel from %d %d %d to %d %d %d\n",from.x,from.y,from.z,next.x,next.y,next.z);
+      //  printf("tunnel from %d %d %d to %d %d %d\n",from.x,from.y,from.z,next.x,next.y,next.z);
         
         //next is now the coordinates of the next cell. Create a node of it.
         current->children[i] = (CaveNode*) malloc(sizeof(CaveNode));
@@ -128,7 +128,7 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
     PosInt pb = b->pos;
     
     
-    printf("%d %d %d leads to %d %d %d\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
+   // printf("%d %d %d leads to %d %d %d\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
     
     //TODO: add logic that detects duplicate connections and offsets them
  
@@ -159,16 +159,18 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
     }else
         printf("PROBLEM creating mapcell connection: %d %d %d = %d %d %d?\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
     
-    float offsetX = frand(0.2,0.7);
-    float offsetY = frand(0.2,0.7);
+    float offsetX = frand(0.1,0.9);
+    float offsetY = frand(0.1,0.9);
+    
+    int size = irand(1,4);
     
     a->connection[a->numConnections].i = offsetX;
     a->connection[a->numConnections].j = offsetY;
-    a->connection[a->numConnections].size = 3;
+    a->connection[a->numConnections].size = size;
     
     b->connection[b->numConnections].i = offsetX;
     b->connection[b->numConnections].j = offsetY;
-    b->connection[b->numConnections].size = 3;
+    b->connection[b->numConnections].size = size;
     
     
     a->numConnections ++;
@@ -178,17 +180,28 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
 //MCInfo(int int int) returns a struct with general mapcell gen info
 MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
 {
+    if(gx < 0 || gx >= OWwidth || gy < 0 || gy >= OWwidth || gz < 0 || gz >= OWdepth )
+        return cells[0][0][0]; // hey, why not?
+    
     MCInfo info = cells[gz][gx][gy];
     
   //  printf("getting MC info for %d %d %d\n",gx,gy,gz);
     
     // change type according to something?
     // entrance
-    if(gx == 0 && gy == 0 && gz == 0)
+    if(gx == 2 && gy == 2 && gz == 28)
     {
         info.type = MCT_ENTRANCE;
-
-        
+        return info;
+    }
+    if(gz == 28)
+    {
+        info.type = MCT_GLACIERBOTTOM;
+        return info;
+    }
+    if(gz > 28)
+    {
+        info.type = MCT_GLACIER;
         return info;
     }
     

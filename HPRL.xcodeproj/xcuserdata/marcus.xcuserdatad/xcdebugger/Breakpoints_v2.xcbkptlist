@@ -10,11 +10,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "HPRL/Game.cpp"
-            timestampString = "533379632.080773"
+            timestampString = "533578346.038868"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "768"
-            endingLineNumber = "768"
+            startingLineNumber = "820"
+            endingLineNumber = "820"
             landmarkName = "Game::getCellatCoords(int x, int y, int z)"
             landmarkType = "5">
          </BreakpointContent>
