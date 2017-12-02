@@ -65,6 +65,8 @@ private:
     
     PosInt lookAt;
     
+    void lookReport();
+    
     int pointVisibility(Float3 f, Float3 t);
     
     float dropFlare();
@@ -82,7 +84,6 @@ private:
 
     void unloadCells();
     void loadCells();
-    
     
 public:
     Game(World* w);

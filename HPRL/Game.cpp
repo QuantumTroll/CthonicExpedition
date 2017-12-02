@@ -55,20 +55,7 @@ void Game::init()
     time = 0;
     srandom(2);
     
-    // create a player entity
-    player = world->createEntity();
-    world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_OMNILIGHT;
-  //  world->is_player_controlled[player].is_player_controlled = 1;
-  //  world->is_visible[player].is_visible = 1;
-    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5)};
-    world->velocity[player] = {0,0,0};
-    world->is_visible[player].tex = 265; // some thing
-    world->is_visible[player].tex_side = 265; // some thing
-    world->move_type[player] = MOV_FREE; // default movement mode
-    world->light_source[player].brightness = 1.5; // reduce when not debugging
-    lookAt = Float32PosInt( world->position[player]);
-    
-    eyesOpen = 1;
+    // create a player character
     
     pc.name="Mary-Sue";
     pc.mood=1;
@@ -85,6 +72,22 @@ void Game::init()
     pc.numFlares = 5;
     pc.nuts = 5;
     pc.rope = 6.31;
+
+// create a player entity
+    player = world->createEntity();
+    world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_OMNILIGHT;
+  //  world->is_player_controlled[player].is_player_controlled = 1;
+  //  world->is_visible[player].is_visible = 1;
+    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5-2)};
+    world->velocity[player] = {0,0,0};
+    world->is_visible[player].tex = 265; // some thing
+    world->is_visible[player].tex_side = 265; // some thing
+    sprintf(world->is_visible[player].lookString,"yourself, %s",pc.name.c_str());
+    world->move_type[player] = MOV_FREE; // default movement mode
+    world->light_source[player].brightness = 1.5; // reduce when not debugging
+    lookAt = Float32PosInt( world->position[player]);
+    
+    eyesOpen = 1;
     
     look = 0;
     
@@ -128,6 +131,7 @@ void Game::addInput(char inchar)
         case 'b': input = KEY_BANDAGE; break;
         case 'o': input = KEY_ORIENTEER; break;
         case 'x': input = KEY_CLOSEEYES; break;
+        case 'e': input = KEY_EXAMINE; break;
         default: input = KEY_NONE;
     }
     
@@ -212,6 +216,9 @@ void Game::doSystems()
         }else if(input & KEY_CLOSEEYES)
         {
             toggleCloseEyes();
+        }else if(input & KEY_EXAMINE)
+        {
+            lookReport();
         }
     }
     // step simulation
@@ -408,9 +415,39 @@ void Game::doSystems()
         if(world->position[look].y < 0)
             lookAt.y --;
         if(world->position[look].z < 0)
-            lookAt.z --;
+            lookAt.z --;                
     }
     turnOff();
+}
+
+void Game::lookReport()
+{
+    char s[100];
+    if(look == 0) // detailed character report
+    {
+        sprintf(s,"You examine yourself. You see a shell of a human being.");
+        addToLog(s);
+    }else     // check what's in lookAt, do addToLog with look strings for tile, entities.
+    {
+        int ent;
+        for(ent = 0; ent < maxEntities; ent++)
+        {
+            if(ent == look)
+                continue;
+            if(world->mask[ent] & COMP_POSITION)
+            {
+                if(isEqPosInt(Float32PosInt(world->position[ent]),lookAt))
+                {
+                    sprintf(s,"You see %s.", world->is_visible[ent].lookString);
+                    addToLog(s);
+                }
+            }
+        }
+        MapTile * tile = getTile(lookAt);
+        sprintf(s,"You see %s. %s.",tile->mat_name,tile->mat_description);
+        addToLog(s);
+        //sprintf(s,"%s");
+    }
 }
 
 void Game::toggleCloseEyes()
@@ -464,10 +501,11 @@ float Game::toggleClimb()
         {
             if( normFloat3(world->velocity[player]) > 2)
             {
+                float v = normFloat3(world->velocity[player]);
                 addToLog("You're falling too fast, but manage to slow down.");
                 // v = v^ * 0.5*|v|
-                world->velocity[player] = mulFloat3(normaliseFloat3(world->velocity[player]),normFloat3(world->velocity[player])*0.5);
-                pc.energy -= 20;
+                world->velocity[player] = mulFloat3(normaliseFloat3(world->velocity[player]),v*0.5);
+                pc.energy -= 20*v;
                 time += 1;
             }else {
                 world->move_type[player] = MOV_CLIMB;
@@ -499,6 +537,7 @@ float Game::dropFlare()
         world->light_source[flare].brightness = 4.0;
         world->is_visible[flare].tex = 4;
         world->is_visible[flare].tex_side = 4;
+        sprintf(world->is_visible[flare].lookString,"a lit flare");
         world->position[flare] = world->position[player];
         world->velocity[flare] = {0,0,0};
         world->counter[flare].type = CNT_FLARE;
@@ -521,6 +560,7 @@ float Game::throwFlare()
         world->move_type[flare] = MOV_FREE;
         world->is_visible[flare].tex = 4;
         world->is_visible[flare].tex_side = 4;
+        sprintf(world->is_visible[flare].lookString,"a lit flare");
         world->counter[flare].type = CNT_FLARE;
         world->counter[flare].max = 15; //lasts for 15 steps
         world->counter[flare].count = world->counter[flare].max;
@@ -649,6 +689,7 @@ void Game::heal(float timeStep)
             world->position[blood] = world->position[player];
             world->is_visible[blood].tex = 5;
             world->is_visible[blood].tex_side = 6;
+            sprintf(world->is_visible[blood].lookString,"a puddle of blood");
             world->move_type[blood] = MOV_FREE;
         }
             
@@ -708,14 +749,11 @@ int Game::pointVisibility(Float3 f, Float3 t)
     int i;
     for(i=0; i<distance/stepSize-1; i++)
     {
-        //MapCell * c = getCellCoords(pi.x,pi.y,pi.z);
         MapTile * tile = getTile(pi.x,pi.y,pi.z);
 
         //if the current tile is not transparent, end it.
         if(! (tile->propmask & TP_ISTRANSPARENT))
         {
-          //  if(distance < 5)
-          //      printf("%d %d: %f\n",pi.x,pi.y,distance - stepSize*i);
             if(distance - i*stepSize < .5)
                 return 1;
 
@@ -723,7 +761,6 @@ int Game::pointVisibility(Float3 f, Float3 t)
         }
         
         // step along the line
-        //p = sumFloat3(p, delta);
         p = sumFloat3(f,mulFloat3(delta, i));
         pi = Float32PosInt(p);
     }
@@ -750,7 +787,7 @@ int Game::visibility(PosInt from, PosInt to)
     
     // bottom face
     t = {(float)(to.x+0.5), (float)(to.y+0.5), (float)(to.z)};
-    if(pointVisibility(sumFloat3(f, {0,0,-.85}),t))
+    if(pointVisibility(sumFloat3(f, {0,0,-.5}),t))
         return 1;
     
     

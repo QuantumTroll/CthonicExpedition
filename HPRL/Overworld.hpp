@@ -31,7 +31,9 @@ typedef enum
     MCT_LIMESTONE,
     MCT_SHALE,
     MCT_OLDONESCITY,
-    MCT_MAGMASEA
+    MCT_MAGMASEA,
+    MCT_CRYSTALCAVE,
+    MCT_TREASURE
 } MCType;
 
 /*connections between mapcells:

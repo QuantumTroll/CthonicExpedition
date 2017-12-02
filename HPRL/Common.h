@@ -54,7 +54,8 @@ typedef enum
     KEY_INVENTORY = 1 << 11,
     KEY_BANDAGE = 1 << 12,
     KEY_ORIENTEER = 1 << 13,
-    KEY_CLOSEEYES = 1 << 14
+    KEY_CLOSEEYES = 1 << 14,
+    KEY_EXAMINE = 1 << 15 //TODO: implement 'e'xamine button when 'l'ook mode active. When inactive, gives detailed PC status.
 } Key;
 
 typedef enum
@@ -231,6 +232,7 @@ static Direction reverse(Direction dir)
 typedef struct {
     int tex;
     int tex_side;
+    char lookString[32];
 } IsVisible;
 
 typedef struct {

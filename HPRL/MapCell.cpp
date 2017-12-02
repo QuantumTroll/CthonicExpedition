@@ -10,11 +10,7 @@
 #include "MapCell.hpp"
 
 
-MapTile * MapCell::getGlobalTile(int x, int y, int z)
-{
-    return getGlobalTile({x,y,z});
-}
-MapTile * MapCell::getGlobalTile(PosInt p)
+PosInt MapCell::getLocalPos(PosInt p)
 {
     PosInt localP;
     localP.x = p.x - gx*sizexy;
@@ -22,20 +18,69 @@ MapTile * MapCell::getGlobalTile(PosInt p)
     localP.z = p.z - gz*sizez;
     if(localP.x < 0 || localP.x >= sizexy  || localP.y < 0 || localP.y >= sizexy || localP.z < 0 || localP.z >= sizez  )
         printf("ARG %p\n",this);
+    return localP;
+}
+
+PosInt MapCell::getGlobalPos(PosInt p)
+{
+    return sumPosInt(p, {gx*sizexy,gy*sizexy,gz*sizez});
+}
+
+MapTile * MapCell::getGlobalTile(int x, int y, int z)
+{
+    return getGlobalTile({x,y,z});
+}
+MapTile * MapCell::getGlobalTile(PosInt p)
+{
+    PosInt localP = getLocalPos(p);
     return getTile(localP);
 }
 MapTile * MapCell::getTile(PosInt p)
 {
     return &tiles[p.z][p.x][p.y];
 }
-/*
-float MapCell::wasSeen(MapTile* tile){ return tile->wasSeen;}
-
-void MapCell::setWasSeen(MapTile* tile, float light)
+MapTile* MapCell::getFloorTileAbove(PosInt p)
 {
-    if(wasSeen(tile) < light)
-        tile->wasSeen=light;
-}*/
+    PosInt floor = getFloorAbove(p);
+    if(floor.x > 0)
+        return getTile(floor);
+    return NULL;
+}
+MapTile* MapCell::getCeilingTileBelow(PosInt p)
+{
+    PosInt ceiling = getCeilingBelow(p);
+    if(ceiling.x > 0)
+        return getTile(ceiling);
+    return NULL;
+}
+PosInt MapCell::getFloorAbove(PosInt p)
+{
+    int i = p.z;
+    while(i < sizez)
+    {
+        MapTile * t = getTile({p.x,p.y,i});
+        if(t->propmask & TP_AIR)
+            return {p.x,p.y,i};
+        i++;
+    }
+    return {-1,-1,-1};
+}
+PosInt MapCell::getCeilingBelow(PosInt p)
+{
+    int i = p.z;
+    while(i >= 0)
+    {
+        MapTile * t = getTile({p.x,p.y,i});
+        if(t->propmask & TP_AIR)
+            return {p.x,p.y,i};
+        i--;
+    }
+    return {-1,-1,-1};
+}
+PosInt MapCell::getGlobalFloorAbove(PosInt p){return getFloorAbove(getLocalPos(p));}
+PosInt MapCell::getGlobalCeilingBelow(PosInt p){return getCeilingBelow(getLocalPos(p));}
+MapTile* MapCell::getGlobalFloorTileAbove(PosInt p){return getFloorTileAbove(getLocalPos(p));}
+MapTile* MapCell::getGlobalCeilingTileBelow(PosInt p){return getCeilingTileBelow(getLocalPos(p));}
 
 
 
@@ -103,7 +148,6 @@ void MapCell::unload(World* w)
 void MapCell::load(World* w, int x, int y, int z)
 {
     world = w;
-    printf("loading to world %p\n",world);
     
     int i,j,k;
     gx = x; gy = y; gz = z;
@@ -195,6 +239,8 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             tile->propmask = TP_NONE;
             tile->propmask = (TileProp)(TP_AIR | TP_ISTRANSPARENT);
             tile->temperature = 5;
+            sprintf(tile->mat_name,"air");
+            sprintf(tile->mat_description,"Oppressive");
             break;
         case TT_ROCK1:
             tile->propmask = TP_NONE;
@@ -202,6 +248,8 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             tile->temperature = 5;
             tile->tex = 0;
             tile->tex_surface = 1;
+            sprintf(tile->mat_name,"stone");
+            sprintf(tile->mat_description,"Cold");
             break;
         case TT_COLUMN:
             tile->propmask = TP_NONE;
@@ -209,6 +257,8 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             tile->temperature = 5;
             tile->tex = 2;
             tile->tex_surface = 2;
+            sprintf(tile->mat_name,"rock");
+            sprintf(tile->mat_description,"Pale");
             break;
         case TT_ICE:
             tile->propmask = TP_NONE;
@@ -216,13 +266,26 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             tile->temperature = -5;
             tile->tex = 12;
             tile->tex_surface = 13;
+            sprintf(tile->mat_name,"ice");
+            sprintf(tile->mat_description,"Slick");
+            break;
+        case TT_CRYSTAL:
+            tile->propmask = TP_NONE;
+            tile->propmask = (TileProp)(TP_SOLID | TP_ISVISIBLE | TP_ISTRANSPARENT);
+            tile->temperature = 5;
+            tile->tex = 14;
+            tile->tex_surface = 15;
+            sprintf(tile->mat_name,"crystal");
+            sprintf(tile->mat_description,"Smooth");
             break;
         case TT_SCREE:
             tile->propmask = TP_NONE;
-            tile->propmask = (TileProp)(TP_SOLID | TP_GRIPPABLE | TP_ISVISIBLE | TP_SLIPPERY);
+            tile->propmask = (TileProp)(TP_SOLID | TP_GRIPPABLE | TP_ISVISIBLE | TP_SLIPPERY);
             tile->temperature = 5;
-            tile->tex = 14;
-            tile->tex_surface = 16;
+            tile->tex = 16;
+            tile->tex_surface = 17;
+            sprintf(tile->mat_name,"scree");
+            sprintf(tile->mat_description,"Unstable");
             break;
     }
 }
@@ -243,6 +306,8 @@ void MapCell::generateLocalTopology()
         case(MCT_ENTRANCE): genLocalEntrance(info); break;
         case(MCT_GLACIER): genLocalGlacier(info); break;
         case(MCT_GLACIERBOTTOM): genLocalGlacierBottom(info); break;
+        case(MCT_CRYSTALCAVE): genLocalCrystalCave(info); break;
+        case(MCT_TREASURE): genLocalTreasure(info); break;
         
         default: genLocalDefault(info);
     }
@@ -343,6 +408,38 @@ void MapCell::genTunnel_square(PosInt start, PosInt end, int diam)
     }
 }
 
+void MapCell::genLocalCrystalCave(MCInfo info)
+{
+    // everything starts out as rock
+    
+    PosInt c = {sizexy/2,sizexy/2,sizez/2};// {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
+    
+    // carve out a big center
+    genVoid_sphere(c, sizexy/2-2);
+    
+    // connections
+    genStandardConnections(info); // TODO: redo the connections to here so there is guaranteed access but won't break the crystals.
+    
+    int numCrystals = irand(6,18);
+    
+    int i,j;
+    for(i=0; i<numCrystals; i++)
+    {
+        Float3 dir = normaliseFloat3({frand(-1,1),frand(-1,1),frand(-1,1)});
+        int length = irand(3,10);
+        
+        PosInt start = sumPosInt(c,Float32PosInt_rounded( mulFloat3(dir,sizexy/2-2-length)));
+        PosInt end = sumPosInt(c,Float32PosInt_rounded( mulFloat3(dir,sizexy/2)));
+        std::vector<PosInt> beam = getStraightPath(start, end);
+        
+        for(j=0; j<beam.size(); j++)
+        {
+            setTileType(beam[j],TT_CRYSTAL);
+        }
+    }
+    
+}
+
 void MapCell::genLocalGlacier(MCInfo info)
 {
     int i,j,k;
@@ -413,7 +510,6 @@ void MapCell::genLocalEntrance(MCInfo info)
         }
     }
     // carve out a small center
-    
     for(i=2*sizexy/5; i<3*sizexy/5; i++)
     {
         for(j=2*sizexy/5; j<3*sizexy/5; j++)
@@ -427,19 +523,56 @@ void MapCell::genLocalEntrance(MCInfo info)
             }
         }
     }
+    // carve out a tunnel up
+    genTunnel_round({sizexy/2,sizexy/2,sizez/2}, {sizexy/2,sizexy/2,sizez}, 2);
+    
+    
     genStandardConnections(info);
     
-    //TODO: add crash site
-    PosInt crashPos = {sizexy/2,sizexy/2,2*sizez/5};
-    crashPos = sumPosInt(crashPos, {gx*sizexy,gy*sizexy,gz*sizez});
+    // elevator crash site
+    PosInt crashPos = getFloorAbove({sizexy/2,sizexy/2,0});
+    crashPos = getGlobalPos(crashPos);//
     
-    printf("world is %p\n",world);
     entity_t ent1 = world->createEntity();
     world->mask[ent1] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT;
     world->position[ent1] =  PosInt2Float3(crashPos);
     world->is_visible[ent1].tex = 8;
     world->is_visible[ent1].tex_side = 9;
+    sprintf(world->is_visible[ent1].lookString,"a broken elevator");
     world->light_source[ent1].brightness = 2;
+    
+    // some bits of ice lying around
+    for(i=0; i < 5; i++)
+    {
+        setTileType(getFloorAbove({irand(2*sizexy/5,3*sizexy/5),irand(2*sizexy/5,3*sizexy/5),0}), TT_ICE);
+    }
+}
+
+void MapCell::genLocalTreasure(MCInfo info)
+{
+    // everything starts out as rock
+    
+    PosInt c = {0,0,0};// {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
+    
+    // carve out a big center
+    int i,j,k;
+    for(i=1*sizexy/5; i<4*sizexy/5; i++)
+    {
+        for(j=1*sizexy/5; j<4*sizexy/5; j++)
+        {
+            for(k=1*sizez/5; k<4*sizez/5; k++)
+            {
+                if(i % 5 == 0 && j % 3 == 0)
+                    setTileType(i+c.x,j+c.y,k+c.z,TT_ICE);
+                else
+                    setTileType(i+c.x,j+c.y,k+c.z,TT_AIR);
+            }
+            setTileType(i+c.x,j+c.y,sizez/5,TT_ICE); //ice floor
+        }
+    }
+    
+    genStandardConnections(info);
+    
 }
 
 void MapCell::genStandardConnections(MCInfo info, PosInt center)
@@ -473,27 +606,81 @@ void MapCell::genStandardConnections(MCInfo info)
     genStandardConnections(info, end);
 }
 
+void MapCell::genVoid_sphere(PosInt center, int radius)
+{
+    int orad = radius;
+    PosInt t = sumPosInt(center,{radius,radius,radius});
+    while(t.x >= sizexy || t.y >= sizexy || t.z >= sizez)
+    {
+        radius--;
+        t = sumPosInt(center,{radius,radius,radius});
+    }
+    t = sumPosInt(center,{-radius,-radius,-radius});
+    while(t.x < 0 || t.y < 0 || t.z < 0)
+    {
+        radius--;
+        t = sumPosInt(center,{-radius,-radius,-radius});
+    }
+    printf("sphere radius %d of %d\n",radius, orad);
+    int i,j,k;
+    for(i=-radius; i<radius; i++)
+    {
+        for(j=-radius; j<radius; j++)
+        {
+            for(k=-radius; k<radius; k++)
+            {
+                if(distFloat3(PosInt2Float3({i,j,k}), {0,0,0}) <= radius)
+                {
+                    PosInt p = sumPosInt({i,j,k},center);
+                    setTileType(p, TT_AIR);
+                }
+            }
+        }
+    }
+}
+void MapCell::genVoid_sphere(PosInt center, int radius, int lumps)
+{
+    genVoid_sphere(center,radius);
+}
+
 void MapCell::genLocalDefault(MCInfo info)
 {
     // everything starts out as rock
     
     PosInt c = {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
+    c = sumPosInt(c,{sizexy/2,sizexy/2,sizez/2});
     
-    // carve out a small center
-    int i,j,k;
-    for(i=2*sizexy/5; i<3*sizexy/5; i++)
+    // carve out center
+    int r = irand(2,9);
+    genVoid_sphere(c,r);
+    
+    // connections out
+    genStandardConnections(info);
+    
+    // add some random bits and bobs.
+    
+    // stalagmites/tites/columns
+    int numCols = irand(0,5);
+    int i,j;
+    for(i=0; i<numCols; i++)
     {
-        for(j=2*sizexy/5; j<3*sizexy/5; j++)
+        PosInt p = sumPosInt(c,{irand(-r,r),irand(-r,r),0});
+        PosInt ceil = getCeilingBelow({p.x,p.y,sizez-1});
+        PosInt floor = getFloorAbove(p);
+        int len = irand(1,6);
+        for(j=0; j<len; j++)
         {
-            for(k=2*sizez/5; k<3*sizez/5; k++)
+            if(j%2)
             {
-                if(i % 5 == 0 && j % 3 == 0)
-                    setTileType(i+c.x,j+c.y,k+c.z,TT_COLUMN);
-                else
-                    setTileType(i+c.x,j+c.y,k+c.z,TT_AIR);
+                setTileType(ceil,TT_COLUMN);
+                ceil = sumPosInt(ceil,{0,0,-1});
+            } else {
+                setTileType(floor,TT_COLUMN);
+                floor = sumPosInt(floor,{0,0,1});
             }
+            if(floor.z >= ceil.z)
+                break;
         }
     }
     
-    genStandardConnections(info);
 }

@@ -114,7 +114,12 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
         }
         
         //recurse!
-        buildCaverns(current->children[i],depth);
+        if(depth > 0)
+            buildCaverns(current->children[i],depth);
+        else
+            cells[next.z][next.x][next.y].type = MCT_CRYSTALCAVE;
+        
+        //TODO: connect the Crystal chambers together. choose the deepest end chamber and make it Treasure chamber
     }
 }
 
@@ -185,9 +190,12 @@ MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
     
     MCInfo info = cells[gz][gx][gy];
     
-  //  printf("getting MC info for %d %d %d\n",gx,gy,gz);
+    if(info.type != MCT_DEFAULT) // if not default, preserve whatever is there
+    {
+        return info;
+    }
     
-    // change type according to something?
+    // if default, change type according to something
     // entrance
     if(gx == 2 && gy == 2 && gz == 28)
     {

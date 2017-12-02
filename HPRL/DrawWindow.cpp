@@ -117,6 +117,7 @@ void DrawWindow::drawTile(int x, int y, int tx, int ty)
 
 void DrawWindow::drawTile(int x, int y, int tex, float tl, float tr, float br, float bl)
 {
+//    tl = 1; tr = 1; bl = 1; br = 1;
     int tx, ty, tx2, ty2;
     tl *=2;    tr *=2;    bl *=2;    br *=2;
     // get the tile's texture coords
@@ -207,6 +208,10 @@ void DrawWindow::drawTiles() {
                         
                         tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                         
+                        // if lookat.z > p.z and zm > p.z, then use the light coming from below. Trust me.
+                        if(z > p.z && zm > p.z)
+                            tp = sumFloat3(tp,{0,0,-0.5f});
+                        
                         float q = 0.49;
                         //  printf("tl");
                         float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
@@ -216,7 +221,8 @@ void DrawWindow::drawTiles() {
                         float br = fmin(1,game->lighting(sumFloat3(tp,{q,-q,0})));
                         // printf("bl");
                         float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));
-                                                
+                        
+                       // tl = 1; tr = 1; br = 1; bl = 1;
                         if (depth== 0){
                             drawTile(i,j,tile->tex,tl,tr,br,bl);
                         }else {
@@ -271,9 +277,9 @@ void DrawWindow::drawWorld()
             
             // Entity's position
             PosInt pos = Float32PosInt(world->position[ent]);
-            int x = pos.x;//(int)(world->position[ent].x+.5);
-            int y = pos.y;//(int)(world->position[ent].y+.5);
-            int z = pos.z;//(int)(world->position[ent].z+.5);
+            int x = pos.x;
+            int y = pos.y;
+            int z = pos.z;
             
             // the tile on which to draw it // i = px-x;
             int i = px + x;
@@ -286,8 +292,22 @@ void DrawWindow::drawWorld()
                 PosInt p = Float32PosInt(world->position[game->getPlayerEntity()]);
                 if(game->visibility(p,{x,y,z})>0)
                 {
+                    // check whether camera's view is blocked by something.
+                    int k;
+                    int isBlocked = 0;
+                    for(k=z; k <= game->getLookAt().z; k++)
+                    {
+                        if(! (game->getTile(x,y,k)->propmask & TP_ISTRANSPARENT))
+                        {
+                            isBlocked = 1;
+                            break;
+                        }
+                    }
+                    if(isBlocked)
+                        continue;
+                    
                     //printf("depth was %d\n",depth);
-                    Float3 tp = PosInt2Float3({x,y,z}); //getFloat3AtTile(x, y);
+                    Float3 tp = PosInt2Float3({x,y,z}); 
                     
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                     
@@ -304,6 +324,8 @@ void DrawWindow::drawWorld()
                     // draw the entity
                     int tex = world->is_visible[ent].tex;
                     drawTile(i,j,tex,tl,tr,br,bl);
+                    
+                    //TODO: don't draw lower-z ents over higher-z ents
                 }
             }
         }

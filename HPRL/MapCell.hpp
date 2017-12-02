@@ -20,7 +20,8 @@ typedef enum
     TT_AIR=1<<0,
     TT_COLUMN=1<<1,
     TT_SCREE=1<<2,
-    TT_ICE=1<<3
+    TT_ICE=1<<3,
+    TT_CRYSTAL=1<<4
 }TileType;
 
 typedef enum
@@ -46,8 +47,8 @@ typedef struct
     float temperature;
     int tex;
     int tex_surface;
-    char * mat_name;
-    char * mat_description;
+    char mat_name[32];
+    char mat_description[32];
     float wasSeen;
 }MapTile;
 
@@ -66,6 +67,11 @@ private:
     
     MapTile *** tiles;
     
+    PosInt getLocalPos(PosInt gPos);
+    PosInt getGlobalPos(PosInt lPos);
+    
+    void genLocalCrystalCave(MCInfo info);
+    void genLocalTreasure(MCInfo info);
     void genLocalGlacierBottom(MCInfo info);
     void genLocalGlacier(MCInfo info);
     void genStandardConnections(MCInfo info);
@@ -75,12 +81,24 @@ private:
     void genTunnel_square(PosInt start, PosInt end, int diam);
     void genTunnel_round(PosInt start, PosInt end, int diam);
     void genTunnel_round_straight(PosInt start, PosInt end, int diam);
+    void genVoid_sphere(PosInt center, int radius);
+    void genVoid_sphere(PosInt center, int radius, int lumps);
     void initTile(int x, int y, int z);
     void generateLocalTopology();
+    
+    PosInt getFloorAbove(PosInt p);
+    PosInt getCeilingBelow(PosInt p);
+    MapTile* getFloorTileAbove(PosInt p);
+    MapTile* getCeilingTileBelow(PosInt p);
     
 public:
     MapTile* getGlobalTile(PosInt p);
     MapTile* getGlobalTile(int x, int y, int z);
+    
+    PosInt getGlobalFloorAbove(PosInt p);
+    PosInt getGlobalCeilingBelow(PosInt p);
+    MapTile* getGlobalFloorTileAbove(PosInt p);
+    MapTile* getGlobalCeilingTileBelow(PosInt p);
     
     // these are found in Game
    // float wasSeen(MapTile* tile);
