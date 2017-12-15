@@ -24,8 +24,12 @@ DrawWindow::DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g):F
     world = w;
     game = g;
     mask = COMP_IS_VISIBLE;
+#ifdef __APPLE__
     const char filename[200]="/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/art/tileset1.png";
-    //const char filename[200]="art/tileset1.png";
+    //const char filename[200]="tileset1.png";
+#else
+    const char filename[200]="art/tileset1.png";
+#endif
     //"HPRL/art/hyptosis_tile-art-batch-1";
     unsigned error = lodepng::decode(tileset,ts_width,ts_height,filename);
     
@@ -58,10 +62,11 @@ void DrawWindow::draw() {
         
         glViewport(0, 0, w(), h());
         glMatrixMode(GL_PROJECTION);
-        //glClearColor(1, 1, .2, 1);
-	    glClearColor(0,0,0,1);
+        
+	    glClearColor(0,0,0,0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glLoadIdentity();
+       
         
         //glOrtho(-1,1,-1,1,1,10);
         
@@ -79,13 +84,47 @@ void DrawWindow::draw() {
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
         
+        // trying to get GLF to work...
+        //        glEnable(GL_DEPTH_TEST);
+     //   glDisable(GL_LINE_SMOOTH);
+     //   glDisable(GL_POINT_SMOOTH);
+     //   glEnable(GL_POLYGON_SMOOTH);
+     //   glShadeModel(GL_SMOOTH);
+     //   glDisable(GL_DITHER);
+     //   glDisable(GL_CULL_FACE);
+     /*   glEnable(GL_COLOR_MATERIAL);
+        glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+        
+       // glShadeModel(GL_SMOOTH);
+        GLfloat shininess = 40;
+        GLfloat white[4] = {1,1,1,1};
+        glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
+        glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,&shininess);*/
+        
+        // GLF Font rendering
+        /* Initialise the library */
+        glfInit();
+        
+        glfDisable(GLF_TEXTURING);
+        glfDisable(GLF_CONTOURING);
+        
+
+        /* Install all the fonts */
+#ifdef __APPLE__
+        char f[100] = "/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/fonts/arial1.glf"; // "fonts/penta1.glf";
+        //char f[100] = "HPRL/fonts/arial1.glf"; // "fonts/penta1.glf";
+#else
+        char f[100] = "fonts/arial1.glf"; // "fonts/penta1.glf";
+#endif
+        thefont = glfLoadFont(f);
+        printf("thefont %d\n", thefont);
     }
+    glDrawBuffer(GL_BACK_LEFT);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     
     glPushMatrix();
     glTranslatef(-1, -1, 0);
-    //glScalef(.8, .8, 1);
     
     drawTiles();
     
@@ -93,7 +132,10 @@ void DrawWindow::draw() {
     
     drawBottomPanel();
     
+    
     glPopMatrix();
+    
+    glFlush();
 }
 
 
@@ -195,7 +237,7 @@ void DrawWindow::drawTiles() {
             for(depth = 0; depth < depth_max; depth ++)
             {
                 int zm = z - depth;
-            
+           // printf("%d %d %d\n",x,y,zm);
                 // check if tile is viewable
                 MapTile * tile = game->getTile(x,y,zm);
 
@@ -655,16 +697,16 @@ void DrawWindow::drawBottomPanel()
     
     // draw character info
     j = 4;
-    i = tilesWide*3;
+    i = tilesWide*3+1;
     
     Character* pc = game->getCharacter();
     print_text2(pc->name.c_str(),i,j);
     char s[64];
     j = 3;
-    sprintf(s,"Energy: %d/%d Recover: %d/turn",(int)pc->energy,(int)(pc->maxEnergy-pc->bruise),(int)(pc->recover-pc->bleed));
+    sprintf(s,"Energy: %d/%d",(int)pc->energy,(int)(pc->maxEnergy-pc->bruise));
     print_text2(s,i,j);
     j = 2;
-    sprintf(s,"Mood: %d/10",pc->mood);
+    sprintf(s," Recover: %d/turn",(int)(pc->recover-pc->bleed));
     print_text2(s,i,j);
     if(pc->bleed > 0)
     {
@@ -726,24 +768,33 @@ int DrawWindow::handle(int event) {
     }
 }
 
-// #define STROKE // GLUT is shit. Let's implement a more serious text renderer. Later. Big TODO here.
+
+
+//#define GLUTBMP
 
 void DrawWindow::print_text(const char* str, float x, float y)
 {
     glPushMatrix();
-
+    glDisable(GL_TEXTURE_2D);
+    glDisable (GL_TEXTURE_RECTANGLE_ARB);
     glDisable(GL_LIGHTING);
     glDisable(GL_BLEND);
-    glColor3f(.8,1,.8);
-#ifndef STROKE
+    glColor3f(.575,.79,.68);
+#ifdef GLUTBMP
     glRasterPos3f(x, y,1);
+    print_text(str);
 #else
     glTranslatef(x,y,0);
-    glScalef(.00025,.00025,1);
+    glScalef(.018,.018,1);
+    // this shit works!
+    glfDrawSolidString((char*)str);
+
 #endif
-    print_text(str);
+   // print_text(str);
     glEnable(GL_BLEND);
     glEnable(GL_LIGHTING);
+    glEnable(GL_TEXTURE_2D);
+    glEnable (GL_TEXTURE_RECTANGLE_ARB);
     glPopMatrix();
 }
 
@@ -758,13 +809,7 @@ void DrawWindow::print_text(const char * str)
     int i = 0;
     while(s != '\0' && i < 128)
     {
-	//glTranslatef(0.01,0,0);
-#ifndef STROKE
       glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, s);
-#else
-        glutStrokeCharacter(GLUT_STROKE_ROMAN,s);
-#endif
-//	glutStrokeCharacter(GLUT_STROKE_ROMAN,s);
         i++;
         s = str[i];
     }

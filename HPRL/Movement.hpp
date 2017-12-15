@@ -19,12 +19,13 @@ class Game;
 class Movement
 {
     Game * game;
+    World * w;
     int mask = COMP_CAN_MOVE;
     
     
-    float walk(World* w, Key input, entity_t ent);
-    float move(World* w, Key input, entity_t ent);
-    float climb(World* w, Key input, entity_t ent);
+    float walk(Key input, entity_t ent);
+    float move(Key input, entity_t ent);
+    float climb(Key input, entity_t ent);
     
 public:
     Movement(){}
@@ -32,8 +33,9 @@ public:
     int isClimbable(PosInt p);
     
     void setGame(Game * g){game = g;}
-    void exec(World* w, float timestep);
-    float input(World* w, Key input); // returns time until resolution
+    void setWorld(World * world){w = world;}
+    void exec(float timestep);
+    float input(Key input); // returns time until resolution
 };
 
 #endif /* Movement_hpp */

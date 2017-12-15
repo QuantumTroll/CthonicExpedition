@@ -26,11 +26,11 @@ void EnergySystem::exec(float timestep)
     float moveCost = 0;
     // check movement mode
     if(world->move_type[player] & MOV_CLIMB)
-    {
+    {                
         moveCost = 20;
         PosInt p = Float32PosInt(world->position[player]);
-        PosInt p2;
-        MapCell * c;
+        PosInt p2, p3;
+        
         
         // modify cost according to grip
         
@@ -50,17 +50,23 @@ void EnergySystem::exec(float timestep)
             numGrippable++;
         
         if(numGrippable == 0) // overhead hold or other uncomfortable position
-            moveCost += 10;
+            moveCost += 15;
         else if(numGrippable > 1) // corner or chimney
-            moveCost -= 10;
-            
-        // if there's ground below
-        p2 = {p.x,p.y,p.z-1};
-        //c = game->getCellCoords(p2.x,p2.y,p2.z);
-        if(game->getTile(p2)->propmask & TP_SOLID)
         {
-            moveCost = 0;
+            moveCost -= 5;
+            p2 = {p.x-1,p.y,p.z}; p3 = {p.x+1,p.y,p.z};
+            if(game->getTile(p2)->propmask & game->getTile(p3)->propmask & TP_GRIPPABLE) // true chimney
+            {
+                moveCost -= 5;
+            } else {
+                p2 = {p.x,p.y-1,p.z}; p3 = {p.x,p.y+1,p.z};
+                if(game->getTile(p2)->propmask & game->getTile(p3)->propmask & TP_GRIPPABLE) // true chimney
+                    moveCost -= 5;
+            }
+            
         }
+        
+        
         //TODO: check whether we're hanging on an anchor
         
         // modify cost according to move direction

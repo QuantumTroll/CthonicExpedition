@@ -9,7 +9,6 @@
 
 #include <iostream>
 #include <FL/Fl.H>
-//#include <FL/Fl_Window.H>
 
 
 #include "DrawWindow.hpp"
@@ -20,12 +19,24 @@ int main(int argc, const char * argv[]) {
     // insert code here...
     std::cout << "Hello, World!\n";
     
+    int windowHeight = 768, windowWidth = 1024;
+    
+    if(argc > 1)
+    {
+        windowWidth = atoi(argv[1]);
+        windowHeight = (int)windowWidth*0.75;
+    }
+    if(argc > 2)
+    {
+        windowHeight = atoi(argv[2]);
+    }
+    
     World* w = new World();
     
     Game* theGame = new Game(w);
     theGame->init();
     
-    DrawWindow* myWin = new DrawWindow(10,10,800,600,(char*)"Cthonic Expedition", w, theGame);
+    DrawWindow* myWin = new DrawWindow(10,10,windowWidth,windowHeight,(char*)"Cthonic Expedition", w, theGame);
     myWin->mode(FL_RGB | FL_ALPHA | FL_DEPTH | FL_ACCUM);
     myWin->show();
     

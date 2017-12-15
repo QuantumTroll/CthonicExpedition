@@ -126,7 +126,8 @@ public:
     void displayInventory();
     
 
-    
+    int getHasClimbed() { return pc.hasClimbed; }
+    void setHasClimbed(int i) { pc.hasClimbed = i; }
     entity_t getPlayerEntity() { return player; }
     PosInt getLookAt() { return lookAt; }
     Character* getCharacter() { return &pc; }

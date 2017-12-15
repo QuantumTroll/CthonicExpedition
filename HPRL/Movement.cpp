@@ -13,14 +13,18 @@ int Movement::isWalkable(PosInt p)
    // MapCell * c = game->getCellCoords(p.x,p.y,p.z);
     MapTile * tile = game->getTile(p.x,p.y,p.z);
     
-    // walkable iff tile is air and tile below is solid
+    // walkable if tile is air and tile below is solid
     if(tile->propmask & TP_AIR )
     {
-        //c = game->getCellCoords(p.x,p.y,p.z-1);
         tile = game->getTile(p.x,p.y,p.z-1);
         if(tile->propmask & TP_SOLID)
             return 1;
+        // is also walkable if tile is air and current tile below is slippery
+        PosInt p2 = Float32PosInt_rounded(w->position[game->getPlayerEntity()]);
+        if(game->getTile(p2.x,p2.y,p2.z-1)->propmask & TP_SLIPPERY)
+            return 1;
     }
+
     return 0;
 }
 
@@ -95,7 +99,7 @@ int Movement::isClimbable(PosInt p)
     return 0;
 }
 
-float Movement::move(World* w, Key input, entity_t ent)
+float Movement::move(Key input, entity_t ent)
 {
     Float3 *v = &(w->velocity[ent]);
     v->x = 0;
@@ -117,7 +121,7 @@ float Movement::move(World* w, Key input, entity_t ent)
     return time;
 }
 
-float Movement::climb(World* w, Key input, entity_t ent)
+float Movement::climb(Key input, entity_t ent)
 {
     // if energy is negative, chance of letting go.
     Character* pc = game->getCharacter();
@@ -169,7 +173,7 @@ float Movement::climb(World* w, Key input, entity_t ent)
     return time;
 }
 
-float Movement::walk(World* w, Key input, entity_t ent)
+float Movement::walk(Key input, entity_t ent)
 {
     PosInt p = Float32PosInt(w->position[ent]);
     Float3 *v = &(w->velocity[ent]);
@@ -240,7 +244,7 @@ float Movement::walk(World* w, Key input, entity_t ent)
     return time;
 }
 
-float Movement::input(World* w, Key input)
+float Movement::input(Key input)
 {
     entity_t ent;
     
@@ -253,12 +257,12 @@ float Movement::input(World* w, Key input)
             {
                 // if walking, do walking routine)
                 if(w->move_type[ent] & MOV_WALK)
-                    time = walk(w, input, ent);
+                    time = walk(input, ent);
                 // if floating, do basic move
                 else if(w->move_type[ent] & MOV_FLOAT)
-                    time = move(w, input, ent);
+                    time = move(input, ent);
                 else if(w->move_type[ent] & MOV_CLIMB)
-                    time = climb(w, input, ent);
+                    time = climb(input, ent);
                 else
                 // otherwise, you're out of luck.
                     time = 1;
@@ -268,7 +272,7 @@ float Movement::input(World* w, Key input)
     return time;
 }
 
-void Movement::exec(World* w, float timestep)
+void Movement::exec(float timestep)
 {
     // find ents with the right components
     entity_t ent;
@@ -335,6 +339,31 @@ void Movement::exec(World* w, float timestep)
                     p->x += timestep*v->x;
                     p->y += timestep*v->y;
                     p->z += timestep*v->z;
+                    
+                    //check whether a climbing player should start walking. if on nonslippery walkable surface.
+                    if(w->move_type[ent] & MOV_CLIMB)
+                    {
+                        if( game->getHasClimbed())
+                        {
+                            if(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_SOLID && !(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_SLIPPERY))
+                            {
+                                w->move_type[ent] = MOV_WALK;
+                                w->position[ent] = PosInt2Float3(Float32PosInt(*p));
+                                w->velocity[ent] = {0,0,0};
+                                game->addToLog("You let go and begin to walk");
+                            }
+                        }else
+                            game->setHasClimbed(1);
+                    }
+                    
+                    // check whether a walking player should start freefalling. if on air
+                    if(w->move_type[ent] & MOV_WALK)
+                    {
+                        if(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_AIR)
+                        {
+                            w->move_type[ent] = MOV_FREE;
+                        }
+                    }
                 }
                 v->x = 0;
                 v->y = 0;

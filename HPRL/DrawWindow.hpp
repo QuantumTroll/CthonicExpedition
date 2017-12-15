@@ -15,6 +15,8 @@
 #include <FL/Fl_Gl_Window.H>
 #include "Common.h"
 #include "Game.hpp"
+#include "glf.h"
+
 
 class DrawWindow : public Fl_Gl_Window {
     int panel_width;
@@ -24,6 +26,8 @@ class DrawWindow : public Fl_Gl_Window {
     int mask;
     
     int memorytex = 7;
+    
+    int thefont;
 
     std::deque<std::string> log;
     

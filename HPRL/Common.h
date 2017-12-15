@@ -106,6 +106,7 @@ typedef struct {
 
 typedef struct {
     std::string name;
+    int hasClimbed;    
     int injuries;
     int mood;
     float strength;

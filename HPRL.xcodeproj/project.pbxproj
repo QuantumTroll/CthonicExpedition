@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2C16318E1FDC8781000E8B69 /* glf.c in Sources */ = {isa = PBXBuildFile; fileRef = 2C16318C1FDC8781000E8B69 /* glf.c */; };
 		2C38C6D41FB6F36300A04517 /* Energy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C38C6D21FB6F36200A04517 /* Energy.cpp */; };
 		2C51BFC71FC3056C00589B91 /* Overworld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C51BFC51FC3056C00589B91 /* Overworld.cpp */; };
 		2C9E17C61F84EF5600DDDBE7 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C9E17C51F84EF5600DDDBE7 /* main.cpp */; };
@@ -30,6 +31,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2C16318C1FDC8781000E8B69 /* glf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = glf.c; sourceTree = "<group>"; };
+		2C16318D1FDC8781000E8B69 /* glf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = glf.h; sourceTree = "<group>"; };
+		2C1631941FE45040000E8B69 /* tileset1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = tileset1.png; path = HPRL/art/tileset1.png; sourceTree = "<group>"; };
+		2C1631951FE451EC000E8B69 /* art */ = {isa = PBXFileReference; lastKnownFileType = folder; path = art; sourceTree = "<group>"; };
 		2C38C6D21FB6F36200A04517 /* Energy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Energy.cpp; sourceTree = "<group>"; };
 		2C38C6D31FB6F36200A04517 /* Energy.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Energy.hpp; sourceTree = "<group>"; };
 		2C51BFC51FC3056C00589B91 /* Overworld.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Overworld.cpp; sourceTree = "<group>"; };
@@ -40,7 +45,6 @@
 		2C9E17CD1F84F3C300DDDBE7 /* DrawWindow.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = DrawWindow.hpp; sourceTree = "<group>"; };
 		2C9E17CF1F8BE97800DDDBE7 /* lodepng.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lodepng.cpp; sourceTree = "<group>"; };
 		2C9E17D01F8BE97800DDDBE7 /* lodepng.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lodepng.h; sourceTree = "<group>"; };
-		2C9E17D21F8BEA5100DDDBE7 /* art */ = {isa = PBXFileReference; lastKnownFileType = folder; name = art; path = HPRL/art; sourceTree = "<group>"; };
 		2C9E17D31F8CF86700DDDBE7 /* Common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Common.h; sourceTree = "<group>"; };
 		2C9E17D41F8D18F900DDDBE7 /* Movement.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Movement.cpp; sourceTree = "<group>"; };
 		2C9E17D51F8D18F900DDDBE7 /* Movement.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Movement.hpp; sourceTree = "<group>"; };
@@ -65,7 +69,9 @@
 		2C9E17B91F84EF5600DDDBE7 = {
 			isa = PBXGroup;
 			children = (
-				2C9E17D21F8BEA5100DDDBE7 /* art */,
+				2C1631941FE45040000E8B69 /* tileset1.png */,
+				2C16318C1FDC8781000E8B69 /* glf.c */,
+				2C16318D1FDC8781000E8B69 /* glf.h */,
 				2C9E17C41F84EF5600DDDBE7 /* HPRL */,
 				2C9E17C31F84EF5600DDDBE7 /* Products */,
 			);
@@ -82,6 +88,7 @@
 		2C9E17C41F84EF5600DDDBE7 /* HPRL */ = {
 			isa = PBXGroup;
 			children = (
+				2C1631951FE451EC000E8B69 /* art */,
 				2C9E17D41F8D18F900DDDBE7 /* Movement.cpp */,
 				2C9E17D51F8D18F900DDDBE7 /* Movement.hpp */,
 				2C9E17C51F84EF5600DDDBE7 /* main.cpp */,
@@ -159,6 +166,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2C16318E1FDC8781000E8B69 /* glf.c in Sources */,
 				2C9E17D61F8D18F900DDDBE7 /* Movement.cpp in Sources */,
 				2C38C6D41FB6F36300A04517 /* Energy.cpp in Sources */,
 				2C51BFC71FC3056C00589B91 /* Overworld.cpp in Sources */,

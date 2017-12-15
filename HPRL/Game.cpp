@@ -15,7 +15,7 @@
 #include "Game.hpp"
 
 Game::Game(World* w){
-    world=w; movement = new Movement(); movement->setGame(this);
+    world=w; movement = new Movement(); movement->setGame(this); movement->setWorld(world);
     energy = new EnergySystem(world, &pc, this);
 }
 
@@ -59,6 +59,7 @@ void Game::init()
     
     pc.name="Mary-Sue";
     pc.mood=1;
+    pc.hasClimbed = 0;
     pc.strength = 10;
     pc.injuries=0;
     pc.maxEnergy = 100;
@@ -181,7 +182,7 @@ void Game::doSystems()
         if(input & (KEY_UP|KEY_DOWN|KEY_WEST|KEY_EAST|KEY_NORTH|KEY_SOUTH))
         {
          
-            timeStep = movement->input(world,input);
+            timeStep = movement->input(input);
         }else if(input & KEY_FLARE)
         {
             if(look == 0)
@@ -198,7 +199,7 @@ void Game::doSystems()
         }else if(input & KEY_WAIT)
         {
             //TODO: if walking, center player.
-            timeStep = movement->input(world, input);
+            timeStep = movement->input(input);
         }else if(input & KEY_CLIMB)
         {
             timeStep = toggleClimb();
@@ -224,7 +225,7 @@ void Game::doSystems()
     // step simulation
     // grab an event. take timestep. //TODO: fix this so it works as intended. Maybe Looking/Floating should take a teensy bit of time? Or maybe control input shouldn't be stupid and trigger spurious doSystems() calls. //update: maybe fixed now?
     energy->exec(timeStep);
-    movement->exec(world, timeStep);
+    movement->exec(timeStep);
     heal(timeStep);
     updateCounters(timeStep);
     time += timeStep;
@@ -510,7 +511,9 @@ float Game::toggleClimb()
             }else {
                 world->move_type[player] = MOV_CLIMB;
                 world->position[player] = PosInt2Float3(p);
+                world->velocity[player] = {0,0,0};
                 addToLog("You start to climb");
+                pc.hasClimbed = 0;
                 time += 1;
             }
         }else
