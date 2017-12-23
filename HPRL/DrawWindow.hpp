@@ -53,6 +53,10 @@ class DrawWindow : public Fl_Gl_Window {
     void drawWorldY();
     Float3 getFloat3AtTile(int i, int j);
     
+    void drawMenuBox(int x1, int y1, int x2, int y2);
+    void drawMenu(int x1, int y1, int x2, int y2, int numOptions, MenuOption* options);
+    void drawCurrentMenu();
+    
     void drawLog();
 public:
     DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g);

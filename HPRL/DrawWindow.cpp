@@ -26,7 +26,7 @@ DrawWindow::DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g):F
     mask = COMP_IS_VISIBLE;
 #ifdef __APPLE__
     const char filename[200]="/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/art/tileset1.png";
-    //const char filename[200]="tileset1.png";
+    //const char filename[200]="art/tileset1.png";
 #else
     const char filename[200]="art/tileset1.png";
 #endif
@@ -112,12 +112,12 @@ void DrawWindow::draw() {
         /* Install all the fonts */
 #ifdef __APPLE__
         char f[100] = "/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/fonts/arial1.glf"; // "fonts/penta1.glf";
-        //char f[100] = "HPRL/fonts/arial1.glf"; // "fonts/penta1.glf";
+        //char f[100] = "fonts/arial1.glf"; // "fonts/penta1.glf";
 #else
         char f[100] = "fonts/arial1.glf"; // "fonts/penta1.glf";
 #endif
         thefont = glfLoadFont(f);
-        printf("thefont %d\n", thefont);
+        //printf("thefont %d\n", thefont);
     }
     glDrawBuffer(GL_BACK_LEFT);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -132,6 +132,7 @@ void DrawWindow::draw() {
     
     drawBottomPanel();
     
+    drawCurrentMenu();
     
     glPopMatrix();
     
@@ -677,13 +678,13 @@ void DrawWindow::drawBottomPanel()
     int i,j;
     
     // Paint "panel"
-    /*for(i = 0; i < tilesWide*4-1; i++)
+    for(i = 0; i < tilesWide*4-1; i++)
     {
         for(j=0; j < tilesWide; j++)
         {
             drawTile(1+i,j,11,.51,.51,.51,.51);
         }
-    }*/
+    }
     // draw log
     // TODO: let player toggle longer log with a button press
     log = game->getLog();
@@ -706,12 +707,12 @@ void DrawWindow::drawBottomPanel()
     sprintf(s,"Energy: %d/%d",(int)pc->energy,(int)(pc->maxEnergy-pc->bruise));
     print_text2(s,i,j);
     j = 2;
-    sprintf(s," Recover: %d/turn",(int)(pc->recover-pc->bleed));
+    sprintf(s,"Recover: %d/turn",(int)(pc->recover-pc->bleed));
     print_text2(s,i,j);
     if(pc->bleed > 0)
     {
         sprintf(s,"Bleeding");
-        print_text2(s,i+4,j);
+        print_text2(s,i,j+1);
     }
     
     // TODO: use tiles to creatively draw the character's orientation (walk/climb/jump).
@@ -768,6 +769,39 @@ int DrawWindow::handle(int event) {
     }
 }
 
+void DrawWindow::drawMenuBox(int x1, int y1, int x2, int y2)
+{
+    int i, j;
+    for(i=x1; i<x2; i++)
+    {
+        for(j=y1; j<y2; j++)
+        {
+            drawTile(i,j,11,.45,.45,.45,.45);
+        }
+    }
+}
+void DrawWindow::drawMenu(int x1, int y1, int x2, int y2, int numOptions, MenuOption* options)
+{
+    drawMenuBox(x1,y1,x2,y2);
+    int i;
+    int x = x1 + 1;
+    int y= y1 + 1;
+    char s [50];
+    for(i=0; i<numOptions; i++)
+    {
+        sprintf(s,"%c: %s",options[i].key,options[i].string);
+        print_text2(s, x,y);
+        y++;
+    }
+}
+void DrawWindow::drawCurrentMenu()
+{
+    Menu* menu = game->getCurrentMenu();
+    if(menu)
+    {
+        drawMenu(menu->x1,menu->y1,menu->x2,menu->y2,menu->numOptions,menu->options);
+    }
+}
 
 
 //#define GLUTBMP

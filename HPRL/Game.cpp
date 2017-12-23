@@ -81,8 +81,8 @@ void Game::init()
   //  world->is_visible[player].is_visible = 1;
     world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5-2)};
     world->velocity[player] = {0,0,0};
-    world->is_visible[player].tex = 265; // some thing
-    world->is_visible[player].tex_side = 265; // some thing
+    world->is_visible[player].tex = 266; // some thing
+    world->is_visible[player].tex_side = 266; // some thing
     sprintf(world->is_visible[player].lookString,"yourself, %s",pc.name.c_str());
     world->move_type[player] = MOV_FREE; // default movement mode
     world->light_source[player].brightness = 1.5; // reduce when not debugging
@@ -91,6 +91,8 @@ void Game::init()
     eyesOpen = 1;
     
     look = 0;
+    
+    currentMenu = NULL;
     
     overworld = new Overworld();
     
@@ -115,42 +117,74 @@ void Game::addInput(char inchar)
 {
     Key input;
     // add input to inputs queue
-    switch(inchar)
+    if(! currentMenu)
     {
-        case 'w': input = KEY_NORTH; break;
-        case 's': input = KEY_SOUTH; break;
-        case 'a': input = KEY_WEST; break;
-        case 'd': input = KEY_EAST; break;
-        case '>': input = KEY_DOWN; break;
-        case '<': input = KEY_UP; break;
-        case 'f': input = KEY_FLARE; break;
-        case 'l': input = KEY_LOOK; break;
-        case 'j': input = KEY_JUMP; break;
-        case '.': input = KEY_WAIT; break;
-        case 'c': input = KEY_CLIMB; break;
-        case 'i': input = KEY_INVENTORY; break;
-        case 'b': input = KEY_BANDAGE; break;
-        case 'o': input = KEY_ORIENTEER; break;
-        case 'x': input = KEY_CLOSEEYES; break;
-        case 'e': input = KEY_EXAMINE; break;
-        default: input = KEY_NONE;
+        switch(inchar)
+        {
+            case 'w': input = KEY_NORTH; break;
+            case 's': input = KEY_SOUTH; break;
+            case 'a': input = KEY_WEST; break;
+            case 'd': input = KEY_EAST; break;
+            case '>': input = KEY_DOWN; break;
+            case '<': input = KEY_UP; break;
+            case 'f': input = KEY_FLARE; break;
+            case 'l': input = KEY_LOOK; break;
+            case 'j': input = KEY_JUMP; break;
+            case '.': input = KEY_WAIT; break;
+            case 'c': input = KEY_CLIMB; break;
+            case 'i': input = KEY_INVENTORY; break;
+            case 'b': input = KEY_BANDAGE; break;
+            case 'o': input = KEY_ORIENTEER; break;
+            case 'x': input = KEY_CLOSEEYES; break;
+            case 'e': input = KEY_EXAMINE; break;
+            default: input = KEY_NONE;
+        }
+    }else {
+        // a menu is open. send key directly to menu handler
+        currentMenu->menuHandler(this,inchar);
     }
     
     inputs.push(input);
     turnOn();
 }
 
+void Game::inventoryMenuHandler_s(void * t,char c)
+{
+    ((Game*)t)->inventoryMenuHandler(c);
+}
+void Game::inventoryMenuHandler(char c)
+{
+    switch (c)
+    {
+        case 'i': exitMenu(); break;
+        default: printf("pushed %c\n",c);
+    }
+}
+
 void Game::displayInventory()
 {
-    char s[64];
-    sprintf(s,"# of flares: %d",pc.numFlares);
-    addToLog(s);
-    sprintf(s,"# of bandages: %d",pc.numBandages);
-    addToLog(s);
-    sprintf(s,"# of anchor nuts: %d",pc.nuts);
-    addToLog(s);
-    sprintf(s,"meters of rope: %.1f",pc.rope);
-    addToLog(s);
+    currentMenu = (Menu*) malloc(sizeof(Menu));
+    currentMenu->menuHandler = &inventoryMenuHandler_s;
+    currentMenu->x1 = 3;
+    currentMenu->y1 = 10;
+    currentMenu->x2 = 10;
+    currentMenu->y2 = 18;
+    
+    MenuOption* options = currentMenu->options;
+
+    sprintf(options[0].string,"# of flares: %d",pc.numFlares);
+    options[0].key = 'a';
+    
+    sprintf(options[1].string,"# of bandages: %d",pc.numBandages);
+    options[1].key = 'b';
+    
+    sprintf(options[2].string,"# of anchor nuts: %d",pc.nuts);
+    options[2].key = 'c';
+
+    sprintf(options[3].string,"meters of rope: %.1f",pc.rope);
+    options[3].key = 'd';
+
+    currentMenu->numOptions = 4;
 }
 void Game::addToLog(std::string str)
 {
@@ -428,6 +462,25 @@ void Game::lookReport()
     {
         sprintf(s,"You examine yourself. You see a shell of a human being.");
         addToLog(s);
+        if(pc.armour < 3)
+        {
+            sprintf(s,"Your clothes are torn.");
+            addToLog(s);
+        }
+        if(pc.bruise > 0)
+        {
+            sprintf(s,"Your body is bruised and sore.");
+            addToLog(s);
+        }
+        if(pc.bleed > 0)
+        {
+            sprintf(s,"You are bleeding.");
+            if(pc.bleed > 5)
+                sprintf(s,"You are bleeding a lot.");
+            if(pc.bleed > 10)
+                sprintf(s,"You are bleeding to death.");
+            addToLog(s);
+        }
     }else     // check what's in lookAt, do addToLog with look strings for tile, entities.
     {
         int ent;
@@ -530,22 +583,29 @@ float Game::toggleClimb()
     return time;
 }
 
+entity_t Game::createLitFlare(Float3 pos)
+{
+    entity_t flare = world->createEntity();
+    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
+    world->light_source[flare].brightness = 4.0;
+    world->is_visible[flare].tex = 4;
+    world->is_visible[flare].tex_side = 4;
+    sprintf(world->is_visible[flare].lookString,"a lit flare");
+    world->position[flare] = pos;
+    world->velocity[flare] = {0,0,0};
+    world->move_type[flare] = MOV_FREE;
+    world->counter[flare].type = CNT_FLARE;
+    world->counter[flare].max = 15; //lasts for 15 steps
+    world->counter[flare].count = world->counter[flare].max;
+    return flare;
+}
+
 float Game::dropFlare()
 {
     if(pc.numFlares > 0)
     {
         pc.numFlares--;
-        entity_t flare = world->createEntity();
-        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
-        world->light_source[flare].brightness = 4.0;
-        world->is_visible[flare].tex = 4;
-        world->is_visible[flare].tex_side = 4;
-        sprintf(world->is_visible[flare].lookString,"a lit flare");
-        world->position[flare] = world->position[player];
-        world->velocity[flare] = {0,0,0};
-        world->counter[flare].type = CNT_FLARE;
-        world->counter[flare].max = 15; //lasts for 15 steps
-        world->counter[flare].count = world->counter[flare].max;
+        createLitFlare(world->position[player]);
         addToLog("You drop a flare");
         return 1;
     }
@@ -556,19 +616,9 @@ float Game::throwFlare()
     if(pc.numFlares > 0)
     {
         pc.numFlares--;
-        entity_t flare = world->createEntity();
-        world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
-        world->light_source[flare].brightness = 4.0;
-        world->position[flare] = world->position[player];
-        world->move_type[flare] = MOV_FREE;
-        world->is_visible[flare].tex = 4;
-        world->is_visible[flare].tex_side = 4;
-        sprintf(world->is_visible[flare].lookString,"a lit flare");
-        world->counter[flare].type = CNT_FLARE;
-        world->counter[flare].max = 15; //lasts for 15 steps
-        world->counter[flare].count = world->counter[flare].max;
+        entity_t flare = createLitFlare(world->position[player]);
         Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
-        float len = fmin(normFloat3(delta), 3); //TODO: use player's strength stat
+        float len = fmin(normFloat3(delta), 2.5); //TODO: use player's strength stat
         delta = mulFloat3(normaliseFloat3(delta),len);
         world->velocity[flare] = {delta.x,delta.y,delta.z};
         addToLog("You throw a flare");
@@ -603,7 +653,7 @@ float Game::jump()
     // if standing about, jump up
     if(look == 0)
     {
-        world->velocity[player] = {0,0,1.5};
+        world->velocity[player] = {0,0,1.6};
         world->move_type[player] = MOV_FREE;
         return 1;
     }
@@ -614,7 +664,7 @@ float Game::jump()
     
     world->move_type[player] = MOV_FREE;
     Float3 delta = diffFloat3(world->position[look], world->position[player]);
-    float len = fmin(normFloat3(delta), 1.5); //TODO: use player's str or jump stat
+    float len = fmin(normFloat3(delta), 1.6); //TODO: use player's str or jump stat
     delta = mulFloat3(normaliseFloat3(delta),len);
     world->velocity[player] = {delta.x,delta.y,delta.z};
     

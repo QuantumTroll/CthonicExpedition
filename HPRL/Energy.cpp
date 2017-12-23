@@ -19,7 +19,7 @@ void EnergySystem::exec(float timestep)
     if(pc->bleed > 0)
     {
         pc->energy -= pc->bleed*timestep;
-        game->addToLog("You're bleeding.");
+        //game->addToLog("You're bleeding.");
     }
     
 

@@ -55,7 +55,7 @@ typedef enum
     KEY_BANDAGE = 1 << 12,
     KEY_ORIENTEER = 1 << 13,
     KEY_CLOSEEYES = 1 << 14,
-    KEY_EXAMINE = 1 << 15 //TODO: implement 'e'xamine button when 'l'ook mode active. When inactive, gives detailed PC status.
+    KEY_EXAMINE = 1 << 15
 } Key;
 
 typedef enum
@@ -122,6 +122,18 @@ typedef struct {
     float rope;
     int numFlares;
 } Character;
+
+typedef struct {
+    char string[32]; //123456789012345678901234567890
+    char key;
+}MenuOption;
+
+typedef struct {
+    int x1, y1, x2, y2;
+    int numOptions;
+    MenuOption options[32]; // how many options is a reasonable limit?
+    void (*menuHandler)(void*,char);
+}Menu;
 
 static PosInt sumPosInt(PosInt a, PosInt b)
 {

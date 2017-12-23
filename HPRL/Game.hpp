@@ -63,12 +63,15 @@ private:
     int maxLogEntries = 50;
     std::deque<std::string> log;
     
+    Menu* currentMenu;
+    
     PosInt lookAt;
     
     void lookReport();
     
     int pointVisibility(Float3 f, Float3 t);
     
+    entity_t createLitFlare(Float3 pos);
     float dropFlare();
     float throwFlare();
     float jump();
@@ -77,6 +80,8 @@ private:
     float toggleClimb();
     void heal(float timeStep);    
     void updateCounters(float timeStep);
+    static void inventoryMenuHandler_s(void* t,char c);
+    void inventoryMenuHandler(char c);
     
     float useBandage();
 
@@ -125,6 +130,8 @@ public:
     void addToLog(std::string str);
     void displayInventory();
     
+    Menu* getCurrentMenu() { return currentMenu; }
+    void exitMenu(){ free(currentMenu); currentMenu = NULL;}
 
     int getHasClimbed() { return pc.hasClimbed; }
     void setHasClimbed(int i) { pc.hasClimbed = i; }

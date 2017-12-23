@@ -33,7 +33,7 @@
 /* Begin PBXFileReference section */
 		2C16318C1FDC8781000E8B69 /* glf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = glf.c; sourceTree = "<group>"; };
 		2C16318D1FDC8781000E8B69 /* glf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = glf.h; sourceTree = "<group>"; };
-		2C1631941FE45040000E8B69 /* tileset1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = tileset1.png; path = HPRL/art/tileset1.png; sourceTree = "<group>"; };
+		2C1631941FE45040000E8B69 /* tileset1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = tileset1.png; path = HPRL/art/tileset1.png; sourceTree = SOURCE_ROOT; };
 		2C1631951FE451EC000E8B69 /* art */ = {isa = PBXFileReference; lastKnownFileType = folder; path = art; sourceTree = "<group>"; };
 		2C38C6D21FB6F36200A04517 /* Energy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Energy.cpp; sourceTree = "<group>"; };
 		2C38C6D31FB6F36200A04517 /* Energy.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Energy.hpp; sourceTree = "<group>"; };
