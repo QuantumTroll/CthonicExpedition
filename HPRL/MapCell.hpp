@@ -21,7 +21,8 @@ typedef enum
     TT_COLUMN=1<<1,
     TT_SCREE=1<<2,
     TT_ICE=1<<3,
-    TT_CRYSTAL=1<<4
+    TT_CRYSTAL=1<<4,
+    TT_WATER=1<<5
 }TileType;
 
 typedef enum
@@ -36,6 +37,7 @@ typedef enum
     TP_ISVISIBLE=1<<6,
     TP_ISTRANSPARENT=1<<7,
     TP_RAMP=1<<8,
+    TP_FLOW=1<<9
 }TileProp;
 
 typedef struct
@@ -50,6 +52,8 @@ typedef struct
     char mat_name[32];
     char mat_description[32];
     float wasSeen;
+    float flowSpeed;
+    Direction flowDir;
 }MapTile;
 
 class MapCell
@@ -90,6 +94,10 @@ private:
     PosInt getCeilingBelow(PosInt p);
     MapTile* getFloorTileAbove(PosInt p);
     MapTile* getCeilingTileBelow(PosInt p);
+    
+    void setFlow(MapTile* t, float speed, Direction dir);
+    void setFlow(PosInt lPos, float speed, Direction dir);
+    void setGlobalFlow(PosInt gPos, float speed, Direction dir);
     
 public:
     MapTile* getGlobalTile(PosInt p);

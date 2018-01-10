@@ -24,12 +24,8 @@ DrawWindow::DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g):F
     world = w;
     game = g;
     mask = COMP_IS_VISIBLE;
-#ifdef __APPLE__
-    const char filename[200]="/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/art/tileset1.png";
-    //const char filename[200]="art/tileset1.png";
-#else
     const char filename[200]="art/tileset1.png";
-#endif
+
     //"HPRL/art/hyptosis_tile-art-batch-1";
     unsigned error = lodepng::decode(tileset,ts_width,ts_height,filename);
     
@@ -110,12 +106,8 @@ void DrawWindow::draw() {
         
 
         /* Install all the fonts */
-#ifdef __APPLE__
-        char f[100] = "/Users/marcus/Dropbox/Shared Programming/HPRL/HPRL/HPRL/fonts/arial1.glf"; // "fonts/penta1.glf";
-        //char f[100] = "fonts/arial1.glf"; // "fonts/penta1.glf";
-#else
         char f[100] = "fonts/arial1.glf"; // "fonts/penta1.glf";
-#endif
+
         thefont = glfLoadFont(f);
         //printf("thefont %d\n", thefont);
     }
@@ -785,13 +777,15 @@ void DrawWindow::drawMenu(int x1, int y1, int x2, int y2, int numOptions, MenuOp
     drawMenuBox(x1,y1,x2,y2);
     int i;
     int x = x1 + 1;
-    int y= y1 + 1;
+    int y= y2;
+    print_text2(game->getCurrentMenu()->name, x,y);
+    y--;
     char s [50];
     for(i=0; i<numOptions; i++)
     {
-        sprintf(s,"%c: %s",options[i].key,options[i].string);
+        sprintf(s,"%c. %s",options[i].key,options[i].string);
         print_text2(s, x,y);
-        y++;
+        y--;
     }
 }
 void DrawWindow::drawCurrentMenu()
@@ -799,7 +793,9 @@ void DrawWindow::drawCurrentMenu()
     Menu* menu = game->getCurrentMenu();
     if(menu)
     {
-        drawMenu(menu->x1,menu->y1,menu->x2,menu->y2,menu->numOptions,menu->options);
+        int menuX = 2*tiles_on_screen_x/3;
+        int menuY = 3*tiles_on_screen_y/4;
+        drawMenu(menuX,menuY,menuX+menu->x,menuY+menu->y,menu->numOptions,menu->options);
     }
 }
 

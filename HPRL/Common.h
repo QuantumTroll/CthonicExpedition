@@ -34,7 +34,11 @@ typedef enum
     COMP_ANCHOR = 1 << 6,
     COMP_BANDAGE = 1 << 7,
     COMP_ROPE = 1 << 8,
-    COMP_COUNTER = 1 << 9
+    COMP_COUNTER = 1 << 9,
+    COMP_IS_EDIBLE = 1 << 10,
+    COMP_PICKABLE = 1 << 11,
+    COMP_OWNED = 1 << 12,
+    //COMP_WIELDED = 1 << 13
 } Component;
 
 typedef enum
@@ -65,8 +69,17 @@ typedef enum
     MOV_WALK = 1 << 1,
     MOV_CLIMB = 1 << 2,
     MOV_FLOAT = 1 << 3,
-    MOV_SWIM = 1 << 4
+    MOV_SWIM = 1 << 4,
+    MOV_WIELDED = 1 << 5
 } MoveType;
+
+typedef enum
+{
+    ITM_BANDAGE,
+    ITM_FLARE,
+    ITM_CHOCOLATE,
+    ITM_ANCHOR
+}ItemType;
 
 typedef enum
 {
@@ -87,6 +100,20 @@ typedef struct
     CounterType type;
 } Counter;
 
+typedef struct
+{
+    float calories;
+    float moodMod;
+    float quench;
+} Edible;
+
+typedef struct
+{
+    char name [16];
+    int stack;
+    int maxStack;
+    ItemType type;
+} Pickable;
 
 typedef struct {
     float x;
@@ -117,23 +144,24 @@ typedef struct {
     float bruise;
     float armour;
     float healing;
-    int numBandages;
-    int nuts;
-    float rope;
-    int numFlares;
+    float hunger;
+    float thirst;
 } Character;
 
 typedef struct {
     char string[32]; //123456789012345678901234567890
     char key;
+    entity_t ent;
 }MenuOption;
 
 typedef struct {
-    int x1, y1, x2, y2;
+    char name[16];
+    int x,y;
     int numOptions;
     MenuOption options[32]; // how many options is a reasonable limit?
     void (*menuHandler)(void*,char);
 }Menu;
+
 
 static PosInt sumPosInt(PosInt a, PosInt b)
 {
@@ -264,6 +292,8 @@ public:
     LightSource light_source[maxEntities];
     MoveType move_type[maxEntities];
     Counter counter[maxEntities];
+    Edible edible[maxEntities];
+    Pickable pickable[maxEntities];
     
     World();
     entity_t createEntity();

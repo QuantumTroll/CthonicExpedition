@@ -82,6 +82,21 @@ PosInt MapCell::getGlobalCeilingBelow(PosInt p){return getCeilingBelow(getLocalP
 MapTile* MapCell::getGlobalFloorTileAbove(PosInt p){return getFloorTileAbove(getLocalPos(p));}
 MapTile* MapCell::getGlobalCeilingTileBelow(PosInt p){return getCeilingTileBelow(getLocalPos(p));}
 
+void MapCell::setFlow(MapTile* t, float speed, Direction dir)
+{
+    t->propmask = (TileProp)(t->propmask | TP_FLOW);
+    t->flowSpeed = speed;
+    t->flowDir = dir;
+}
+void MapCell::setFlow(PosInt lPos, float speed, Direction dir)
+{
+    setFlow(getTile(lPos),speed, dir);
+}
+void MapCell::setGlobalFlow(PosInt gPos, float speed, Direction dir)
+{
+    setFlow(getGlobalTile(gPos),speed,dir);
+}
+
 
 
 int MapCell::isInside(Float3 p)

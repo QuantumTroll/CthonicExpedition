@@ -67,7 +67,23 @@ void EnergySystem::exec(float timestep)
         }
         
         
-        //TODO: check whether we're hanging on an anchor
+        // check whether we're hanging on an anchor
+        // only if we're hanging still
+        if( normFloat3( world->velocity[player]) < 0.1 )
+        {
+            int i;
+            for(i=0; i<maxEntities; i++)
+            {
+                if(world->mask[i] & COMP_ANCHOR)
+                {
+                    PosInt anchorPos = Float32PosInt(world->position[i]);
+                    if(distPosInt(p,anchorPos) < 1)
+                    {
+                        moveCost = 0;                        
+                    }
+                }
+            }
+        }
         
         // modify cost according to move direction
         float speed = normFloat3(world->velocity[player]);
@@ -94,5 +110,9 @@ void EnergySystem::exec(float timestep)
         // MOV_FREE implies jump or fall. Pretty stressful, I'd say, no recovery.
         moveCost = pc->recover;
     }
+    moveCost += moveCost*(pc->thirst*pc->thirst); // being thirsty makes you tired faster.
     pc->energy -= moveCost*timestep;
+    
+    pc->hunger += moveCost*timestep / (100*500.0); // we're consuming calories here. Have 100 energy. How many full recoveries before you're starving? 1000 of them?
+    pc->thirst += timestep*pc->bleed / 1000.0; // thirst just slowly grows with time. Much faster while you bleed.
 }

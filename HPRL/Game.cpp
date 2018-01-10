@@ -69,10 +69,8 @@ void Game::init()
     pc.bruise = 0;
     pc.armour = 3;
     pc.healing = 0.01;
-    pc.numBandages = 3;
-    pc.numFlares = 5;
-    pc.nuts = 5;
-    pc.rope = 6.31;
+    pc.hunger = .10;
+    pc.thirst = .10;
 
 // create a player entity
     player = world->createEntity();
@@ -87,6 +85,12 @@ void Game::init()
     world->move_type[player] = MOV_FREE; // default movement mode
     world->light_source[player].brightness = 1.5; // reduce when not debugging
     lookAt = Float32PosInt( world->position[player]);
+    
+    // add starting gear to inventory
+    getBandages(3);
+    getFlares(5);
+    getStartingFoods();
+    getAnchors();
     
     eyesOpen = 1;
     
@@ -154,37 +158,50 @@ void Game::inventoryMenuHandler_s(void * t,char c)
 }
 void Game::inventoryMenuHandler(char c)
 {
-    switch (c)
+    if(c == 'i')
     {
-        case 'i': exitMenu(); break;
-        default: printf("pushed %c\n",c);
+        exitMenu();
+        return;
     }
+    int opt = c-'a';
+    entity_t ent = currentMenu->options[opt].ent;
+    
+    switch (world->pickable[ent].type)
+    {
+        case ITM_BANDAGE: useBandage(ent); break;
+        case ITM_FLARE: wieldFlare(ent); break;
+        case ITM_CHOCOLATE: eat(ent); break;
+        case ITM_ANCHOR: useAnchor(ent); break;
+        default: printf("pushed %c, got item %s\n",c,world->pickable[ent].name);
+    }
+    exitMenu();
 }
 
 void Game::displayInventory()
 {
     currentMenu = (Menu*) malloc(sizeof(Menu));
     currentMenu->menuHandler = &inventoryMenuHandler_s;
-    currentMenu->x1 = 3;
-    currentMenu->y1 = 10;
-    currentMenu->x2 = 10;
-    currentMenu->y2 = 18;
+    sprintf(currentMenu->name,"Inventory");
     
     MenuOption* options = currentMenu->options;
 
-    sprintf(options[0].string,"# of flares: %d",pc.numFlares);
-    options[0].key = 'a';
+    int numItems = 0;
     
-    sprintf(options[1].string,"# of bandages: %d",pc.numBandages);
-    options[1].key = 'b';
+    int ent;
+    for(ent = 0; ent < maxEntities; ent++)
+    {
+        if(world->mask[ent] & COMP_OWNED)
+        {
+            sprintf(options[numItems].string,"%d %s",world->pickable[ent].stack, world->pickable[ent].name);
+            options[numItems].key = (char)('a'+numItems);
+            options[numItems].ent = ent;
+            numItems++;
+        }
+    }
     
-    sprintf(options[2].string,"# of anchor nuts: %d",pc.nuts);
-    options[2].key = 'c';
-
-    sprintf(options[3].string,"meters of rope: %.1f",pc.rope);
-    options[3].key = 'd';
-
-    currentMenu->numOptions = 4;
+    currentMenu->x = 7;
+    currentMenu->y = numItems+3;
+    currentMenu->numOptions = numItems;
 }
 void Game::addToLog(std::string str)
 {
@@ -481,6 +498,26 @@ void Game::lookReport()
                 sprintf(s,"You are bleeding to death.");
             addToLog(s);
         }
+        if(pc.hunger < 0.125)
+            sprintf(s,"Your stomach is content. %f",pc.hunger);
+        else if(pc.hunger < 0.5)
+            sprintf(s,"You feel like you could eat. %f",pc.hunger);
+        else if(pc.hunger < 1)
+            sprintf(s,"You are hungry. %f",pc.hunger);
+        else
+            sprintf(s,"You are starving. %f",pc.hunger);
+        addToLog(s);
+        
+        if(pc.thirst < 0.125)
+            sprintf(s,"You feel hydrated. %f",pc.thirst);
+        else if(pc.thirst < 0.5)
+            sprintf(s,"You feel a little thirsty. %f",pc.thirst);
+        else if(pc.thirst < 0.75)
+            sprintf(s,"You are thirsty. %f",pc.thirst);
+        else
+            sprintf(s,"You are parched. %f",pc.thirst);
+        addToLog(s);
+        
     }else     // check what's in lookAt, do addToLog with look strings for tile, entities.
     {
         int ent;
@@ -587,7 +624,7 @@ entity_t Game::createLitFlare(Float3 pos)
 {
     entity_t flare = world->createEntity();
     world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
-    world->light_source[flare].brightness = 4.0;
+    world->light_source[flare].brightness = 5.0;
     world->is_visible[flare].tex = 4;
     world->is_visible[flare].tex_side = 4;
     sprintf(world->is_visible[flare].lookString,"a lit flare");
@@ -595,43 +632,194 @@ entity_t Game::createLitFlare(Float3 pos)
     world->velocity[flare] = {0,0,0};
     world->move_type[flare] = MOV_FREE;
     world->counter[flare].type = CNT_FLARE;
-    world->counter[flare].max = 15; //lasts for 15 steps
+    world->counter[flare].max = 25; //lasts for 25 steps
     world->counter[flare].count = world->counter[flare].max;
     return flare;
 }
 
+float Game::wieldFlare(entity_t ent)
+{
+    if(world->mask[ent] & COMP_PICKABLE && world->pickable[ent].type == ITM_FLARE && world->pickable[ent].stack > 0)
+    {
+        world->pickable[ent].stack --;
+        if(world->pickable[ent].stack < 1)
+            world->destroyEntity(ent);
+        // create a wielded omnilight
+        entity_t flare = createLitFlare(world->position[player]);
+        world->mask[flare] = world->mask[flare] ^ COMP_IS_VISIBLE;
+        world->move_type[flare] = MOV_WIELDED;
+        addToLog("You wield a flare");
+        return 1;
+    }
+    return 0;
+}
 float Game::dropFlare()
 {
-    if(pc.numFlares > 0)
+    // find a flare
+    int ent;
+    for(ent=0; ent < maxEntities; ent++)
     {
-        pc.numFlares--;
-        createLitFlare(world->position[player]);
-        addToLog("You drop a flare");
-        return 1;
+        if(world->mask[ent] & COMP_PICKABLE && world->pickable[ent].type == ITM_FLARE && world->pickable[ent].stack > 0)
+        {
+            world->pickable[ent].stack --;
+            if(world->pickable[ent].stack < 1)
+                world->destroyEntity(ent);
+            // create a dropped omnilight
+            createLitFlare(world->position[player]);
+            //world->move_type[flare] = MOV_WIELDED;
+            addToLog("You drop a flare");
+            return 1;
+        }
     }
     return 0;
 }
 float Game::throwFlare()
 {
-    if(pc.numFlares > 0)
+    // find a flare
+    int ent;
+    for(ent=0; ent < maxEntities; ent++)
     {
-        pc.numFlares--;
-        entity_t flare = createLitFlare(world->position[player]);
-        Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
-        float len = fmin(normFloat3(delta), 2.5); //TODO: use player's strength stat
-        delta = mulFloat3(normaliseFloat3(delta),len);
-        world->velocity[flare] = {delta.x,delta.y,delta.z};
-        addToLog("You throw a flare");
-        return 1;
+        if(world->mask[ent] & COMP_PICKABLE && world->pickable[ent].type == ITM_FLARE && world->pickable[ent].stack > 0)
+        {
+            world->pickable[ent].stack --;
+            if(world->pickable[ent].stack < 1)
+                world->destroyEntity(ent);
+            entity_t flare = createLitFlare(world->position[player]);
+            Float3 delta = diffFloat3(PosInt2Float3(lookAt), world->position[player]);
+            float len = fmin(normFloat3(delta), 2.5); //TODO: use player's strength stat
+            delta = mulFloat3(normaliseFloat3(delta),len);
+            world->velocity[flare] = {delta.x,delta.y,delta.z};
+            addToLog("You throw a flare");
+            return 1;
+        }
     }
     return 0;
 }
+
+void Game::getAnchors()
+{
+    int numAnchors = 6;
+    entity_t anch = world->createEntity();
+    world->mask[anch] = COMP_OWNED | COMP_PICKABLE | COMP_ANCHOR;
+    sprintf(world->pickable[anch].name,"Anchor");
+    world->pickable[anch].type = ITM_ANCHOR;
+    world->pickable[anch].stack = numAnchors;
+    world->pickable[anch].maxStack = 10;
+}
+
+void Game::getStartingFoods()
+{
+    //Two bars of chocolate
+    entity_t ent = world->createEntity();
+    world->mask[ent] = COMP_OWNED | COMP_PICKABLE | COMP_IS_EDIBLE;
+    sprintf(world->pickable[ent].name,"Chocolate");
+    world->pickable[ent].type = ITM_CHOCOLATE;
+    world->pickable[ent].stack = 2;
+    world->pickable[ent].maxStack = 10;
+    world->edible[ent].calories = 300;
+    world->edible[ent].moodMod = 10;
+    world->edible[ent].quench = -.05;
+
+    // One big sandwich
+    ent = world->createEntity();
+    world->mask[ent] = COMP_OWNED | COMP_PICKABLE | COMP_IS_EDIBLE;
+    sprintf(world->pickable[ent].name,"Big Tuna Sandwich");
+    world->pickable[ent].type = ITM_CHOCOLATE;
+    world->pickable[ent].stack = 1;
+    world->pickable[ent].maxStack = 1;
+    world->edible[ent].calories = 1200;
+    world->edible[ent].moodMod = 5;
+    world->edible[ent].quench = -.1;
+    
+    // Bottle of apple juice
+    ent = world->createEntity();
+    world->mask[ent] = COMP_OWNED | COMP_PICKABLE | COMP_IS_EDIBLE;
+    sprintf(world->pickable[ent].name,"Apple Juice");
+    world->pickable[ent].type = ITM_CHOCOLATE;
+    world->pickable[ent].stack = 1;
+    world->pickable[ent].maxStack = 1;
+    world->edible[ent].calories = 50;
+    world->edible[ent].moodMod = 10;
+    world->edible[ent].quench = 2;
+}
+void Game::getFlares(int num)
+{
+    int i;
+    entity_t flares = 0;
+    for(i=0; i<maxEntities; i++)
+    {
+        if(world->mask[i] & (COMP_OWNED))
+        {
+            if(world->pickable[i].type != ITM_FLARE)
+                continue;
+            if(world->pickable[i].stack + num <= world->pickable[i].maxStack)
+            {
+                flares = i;
+                break;
+            }
+        }
+    }
+    if(! flares )
+    {
+        flares = world->createEntity();
+        world->mask[flares] = COMP_OWNED | COMP_PICKABLE;
+        sprintf(world->pickable[flares].name,"Flares");
+        world->pickable[flares].type = ITM_FLARE;
+        world->pickable[flares].stack = 0;
+        world->pickable[flares].maxStack = 5;
+    }
+    world->pickable[flares].stack += num;
+}
+void Game::getBandages(int num)
+{
+    int i;
+    entity_t bandages = 0;
+    for(i=0; i<maxEntities; i++)
+    {
+        if(world->mask[i] & (COMP_OWNED))
+        {
+            if(world->pickable[i].type == ITM_BANDAGE && world->pickable[i].stack + num <= world->pickable[i].maxStack)
+            {
+                bandages = i;
+                break;
+            }
+        }
+    }
+    if(! bandages )
+    {
+        bandages = world->createEntity();
+        world->mask[bandages] = COMP_BANDAGE | COMP_OWNED | COMP_PICKABLE;
+        sprintf(world->pickable[bandages].name,"Bandages");
+        world->pickable[bandages].type = ITM_BANDAGE;
+        world->pickable[bandages].stack = 0;
+        world->pickable[bandages].maxStack = 10;
+    }
+    world->pickable[bandages].stack += num;
+}
+
 float Game::useBandage()
 {
-    if(pc.numBandages > 0 && pc.bleed > 0)
+    // find a flare
+    int ent;
+    for(ent=0; ent < maxEntities; ent++)
+    {
+        if(world->mask[ent] & COMP_PICKABLE && world->pickable[ent].type == ITM_BANDAGE && world->pickable[ent].stack > 0)
+        {
+            return useBandage(ent);
+        }
+    }
+    return 0;
+}
+
+float Game::useBandage(entity_t bandage)
+{
+    if(pc.bleed > 0)
     {
         addToLog("You use a bandage");
-        pc.numBandages--;
+
+        world->pickable[bandage].stack --;
+        if(world->pickable[bandage].stack < 1)
+            world->destroyEntity(bandage);
         pc.bleed = fmax(0,pc.bleed - 10);
         if(pc.bleed == 0)
             addToLog("You manage to stop the bleeding");
@@ -639,6 +827,41 @@ float Game::useBandage()
     }
     return 0;
 }
+
+float Game::eat(entity_t food)
+{
+    char s[32];
+    sprintf(s,"You consume the %s", world->pickable[food].name);
+    addToLog(s);
+    pc.hunger -= (world->edible[food].calories/2400.0f);
+    pc.mood += (world->edible[food].moodMod);
+    pc.thirst -= world->edible[food].quench;
+    world->pickable[food].stack --;
+    if(world->pickable[food].stack < 1)
+        world->destroyEntity(food);
+    return 1;
+}
+
+float Game::useAnchor(entity_t anchor)
+{
+    // TODO: if next to solid
+    
+    // TODO: if not already an anchor here
+    
+    world->pickable[anchor].stack --;
+    if(world->pickable[anchor].stack < 1)
+        world->destroyEntity(anchor);
+
+    addToLog("You set an anchor");
+    entity_t a = world->createEntity();
+    world->mask[a] = COMP_ANCHOR | COMP_IS_VISIBLE | COMP_POSITION;
+    sprintf(world->is_visible[a].lookString,"Anchor");
+    world->is_visible[a].tex = 267;
+    world->is_visible[a].tex_side = 267;
+    world->position[a] = world->position[player];
+    return 1;
+}
+
 float Game::jump()
 {
     // no double-jump! Can't jump if you're free falling
@@ -727,7 +950,9 @@ void Game::updateCounters(float timeStep)
 
 void Game::heal(float timeStep)
 {
-    float h = pc.healing*timeStep;
+    float h = fmax(0,pc.healing*timeStep*(1-pc.hunger));
+    float amtHealed = 0;
+    // if you're bleeding, there's a chance to heal the bleeding. This is shown by th emission of a spot of blood.
     if(pc.bleed > 0 && frand(0,10) < pc.bleed)
     {
         pc.bleed = fmax(0,pc.bleed - h);
@@ -745,10 +970,13 @@ void Game::heal(float timeStep)
             sprintf(world->is_visible[blood].lookString,"a puddle of blood");
             world->move_type[blood] = MOV_FREE;
         }
-            
+        amtHealed = h;
     }else {
         pc.bruise = fmax(0,pc.bruise - h);
+        amtHealed = h;
     }
+    float hungerGrowth = amtHealed/100.00;
+    pc.hunger += hungerGrowth;
 }
 
 float Game::lighting(Float3 p)

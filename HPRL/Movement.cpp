@@ -28,6 +28,19 @@ int Movement::isWalkable(PosInt p)
     return 0;
 }
 
+int Movement::isSwimmable(PosInt p)
+{
+    MapTile * tile = game->getTile(p.x,p.y,p.z);
+    
+    // can swim to any tile with water, also walkable tiles. Dude will stop swimming if on land.
+    if(tile->propmask & TP_WATER)
+        return 1;
+    else
+        return isWalkable(p);
+    
+    return 0;
+}
+
 int Movement::isClimbable(PosInt p)
 {
     MapTile * tile = game->getTile(p.x,p.y,p.z);
@@ -118,6 +131,70 @@ float Movement::move(Key input, entity_t ent)
         case(KEY_WAIT): time = 1; break;
         default: fprintf(stderr,"non-move input sent to Movement\n");
     }
+    return time;
+}
+
+float Movement::swim(Key input, entity_t ent)
+{
+    PosInt p = Float32PosInt(w->position[ent]);
+    Float3 *v = &(w->velocity[ent]);
+    v->x = 0;
+    v->y = 0;
+    v->z = 0;
+    float time = 1;
+    switch(input)
+    {
+        case(KEY_NORTH):
+            if(isSwimmable({p.x,p.y+1,p.z}))
+                v->y = 1;
+            else if(isWalkable({p.x,p.y+1,p.z+1})){ // get up on shore
+                v->y = isqrt2;
+                v->z = isqrt2;
+                time = sqrt2;
+            }
+            break;
+        case(KEY_SOUTH):
+            if(isSwimmable({p.x,p.y-1,p.z}))
+                v->y = -1;
+            else if(isWalkable({p.x,p.y-1,p.z+1})){ // get up on shore
+                v->y = -isqrt2;
+                v->z = isqrt2;
+                time = sqrt2;
+            }
+            break;
+        case(KEY_EAST):
+            if(isSwimmable({p.x+1,p.y,p.z}))
+                v->x = 1;
+            else if(isWalkable({p.x+1,p.y,p.z+1})){ // get up on shore
+                v->x = isqrt2;
+                v->z = isqrt2;
+                time = sqrt2;
+            }
+            break;
+        case(KEY_WEST):
+            if(isSwimmable({p.x-1,p.y,p.z}))
+                v->x = -1;
+            else if(isWalkable({p.x-1,p.y,p.z+1})){ // get up on shore
+                v->x = -isqrt2;
+                v->z = isqrt2;
+                time = sqrt2;
+            }
+            break;
+            
+        case(KEY_UP):
+            if(isSwimmable({p.x,p.y,p.z+1}))
+                v->z = 1;
+            break;
+        case(KEY_DOWN):
+            if(isSwimmable({p.x,p.y,p.z-1}))
+                v->z = -1;
+            break;
+        case(KEY_WAIT):
+            time = 1; break;
+        default: fprintf(stderr,"non-move input sent to Movement\n");
+    }
+    // add water tile's velocity
+    
     return time;
 }
 
@@ -277,7 +354,6 @@ void Movement::exec(float timestep)
     // find ents with the right components
     entity_t ent;
     
-    
     for(ent = 0; ent<maxEntities; ent++)
     {
         if(w->mask[ent] & mask)
@@ -323,7 +399,7 @@ void Movement::exec(float timestep)
                     }
                     piOld = pi;
                 }
-            }else {
+            }else if(! (w->move_type[ent] & MOV_WIELDED)) {
                 // do simpler stuff for other movement modes
                 Float3 *p = &(w->position[ent]);
                 Float3 *v = &(w->velocity[ent]);
@@ -370,6 +446,16 @@ void Movement::exec(float timestep)
                 v->z = 0;
 
             }
+        }
+    }
+    
+    //move all wielded objects to player's position
+    for(ent = 0; ent<maxEntities; ent++)
+    {
+        if(w->mask[ent] & mask && w->move_type[ent] & MOV_WIELDED)
+        {
+            w->position[ent] = w->position[game->getPlayerEntity()];
+            printf("setting postion of %d to player position\n", ent);
         }
     }
 }

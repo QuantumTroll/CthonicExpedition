@@ -26,11 +26,13 @@ class Movement
     float walk(Key input, entity_t ent);
     float move(Key input, entity_t ent);
     float climb(Key input, entity_t ent);
+    float swim(Key input, entity_t ent);
     
 public:
     Movement(){}
     int isWalkable(PosInt p);
     int isClimbable(PosInt p);
+    int isSwimmable(PosInt p);
     
     void setGame(Game * g){game = g;}
     void setWorld(World * world){w = world;}

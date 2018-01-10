@@ -29,9 +29,19 @@ Overworld::Overworld()
         }
     }
     
-    // build cave network
+    // build cave network (development stub)
     initCaveNode(&root,{1,1,OWdepth-2}, NULL);
     buildCaverns(&root, 10);
+    
+    //TODO: this is where we start building the world for real
+    
+    // begin with subglacial streams. These are watery round tunnels that hug the interface between glacier and surface rock.
+    
+    // one or more subglacial streams tunnel down into the rock. These form the first "biome" that the player traverses. Rounded, twisty tunnels form pair-wise — drier upper (with pools) and wetter lower (with fish?). Occasional cavernous spaces with limestone formations. Fossils from Cenozoic to Triassic. Footprints with strange chevron shape.
+    
+    // narrow, angular pressure cracks in the rock lead to intense downward climb. Water is carried down by a series of falls. Find older fossils — ancient seafood. Same chevron prints.
+    
+    // ...
 }
 
 void Overworld::initCaveNode(CaveNode *cn, PosInt p, CaveNode *parent)
@@ -123,7 +133,7 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
     }
 }
 
-void Overworld::connectCells(MCInfo *a, MCInfo *b)
+void Overworld::connectCells(MCInfo *a, MCInfo *b, float flow)
 {
     if(a == b) // got the same pointers for some reason :P
         return;
@@ -177,9 +187,41 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
     b->connection[b->numConnections].j = offsetY;
     b->connection[b->numConnections].size = size;
     
+    // waterlevel is related to flow and size and speed.
+    // doesn't have to be entirely physical.
+    // assume water flows from a to b
+    if(flow == 0)
+    {
+        a->connection[a->numConnections].waterLevel = 0;
+        a->connection[a->numConnections].flowDir = DIR_NONE;
+        
+        b->connection[b->numConnections].waterLevel = 0;
+        b->connection[b->numConnections].flowDir = DIR_NONE;
+    }else {
+        // liters/second (flow) is proportional to waterlevel*size*size * speed.
+        
+        //determine speed after the fact...
+        float speed = 1.0;
+        float waterLevel = flow/(size*size);
+        if(waterLevel > 1) // lots of water flowing through narrow pipe means fast flow
+        {
+            speed = waterLevel;
+            waterLevel = 1;
+        }else if(waterLevel < 1.0/size) // can't have water level less than 1 tile
+        {
+            speed = flow/(waterLevel * size); //TODO: this is probably wrong
+            waterLevel = 1.0/size;
+        }
+    }
+
     
     a->numConnections ++;
     b->numConnections ++;
+}
+
+void Overworld::connectCells(MCInfo *a, MCInfo *b)
+{
+    connectCells(a,b,0);
 }
 
 //MCInfo(int int int) returns a struct with general mapcell gen info

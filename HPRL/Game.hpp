@@ -74,6 +74,7 @@ private:
     entity_t createLitFlare(Float3 pos);
     float dropFlare();
     float throwFlare();
+    float wieldFlare(entity_t flare);
     float jump();
     void toggleLook();
     void toggleCloseEyes();
@@ -83,8 +84,15 @@ private:
     static void inventoryMenuHandler_s(void* t,char c);
     void inventoryMenuHandler(char c);
     
+    void getFlares(int num);
+    void getBandages(int num);
+    void getStartingFoods();
+    void getAnchors();
+    float useBandage(entity_t bandage);
     float useBandage();
-
+    float eat(entity_t food);
+    float useAnchor(entity_t anchor);
+    
     int isOn;
 
     void unloadCells();
