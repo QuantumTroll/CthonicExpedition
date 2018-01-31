@@ -58,8 +58,9 @@ void Game::init()
     // create a player character
     
     pc.name="Mary-Sue";
-    pc.mood=1;
+    pc.mood=85;
     pc.hasClimbed = 0;
+    pc.facing = {0,0,-1};
     pc.strength = 10;
     pc.injuries=0;
     pc.maxEnergy = 100;
@@ -74,7 +75,7 @@ void Game::init()
 
 // create a player entity
     player = world->createEntity();
-    world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_OMNILIGHT;
+    world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_OMNILIGHT;
   //  world->is_player_controlled[player].is_player_controlled = 1;
   //  world->is_visible[player].is_visible = 1;
     world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5-2)};
@@ -84,6 +85,7 @@ void Game::init()
     sprintf(world->is_visible[player].lookString,"yourself, %s",pc.name.c_str());
     world->move_type[player] = MOV_FREE; // default movement mode
     world->light_source[player].brightness = 1.5; // reduce when not debugging
+    world->light_source[player].color = {1,.9,.8};
     lookAt = Float32PosInt( world->position[player]);
     
     // add starting gear to inventory
@@ -91,6 +93,8 @@ void Game::init()
     getFlares(5);
     getStartingFoods();
     getAnchors();
+    getFlute();
+    getFlashlight();
     
     eyesOpen = 1;
     
@@ -125,10 +129,14 @@ void Game::addInput(char inchar)
     {
         switch(inchar)
         {
-            case 'w': input = KEY_NORTH; break;
+         /*   case 'w': input = KEY_NORTH; break;
             case 's': input = KEY_SOUTH; break;
             case 'a': input = KEY_WEST; break;
-            case 'd': input = KEY_EAST; break;
+            case 'd': input = KEY_EAST; break;*/
+            case 'R': input = KEY_NORTH; break;
+            case 'T': input = KEY_SOUTH; break;
+            case 'Q': input = KEY_WEST; break;
+            case 'S': input = KEY_EAST; break;
             case '>': input = KEY_DOWN; break;
             case '<': input = KEY_UP; break;
             case 'f': input = KEY_FLARE; break;
@@ -137,11 +145,12 @@ void Game::addInput(char inchar)
             case '.': input = KEY_WAIT; break;
             case 'c': input = KEY_CLIMB; break;
             case 'i': input = KEY_INVENTORY; break;
-            case 'b': input = KEY_BANDAGE; break;
             case 'o': input = KEY_ORIENTEER; break;
             case 'x': input = KEY_CLOSEEYES; break;
             case 'e': input = KEY_EXAMINE; break;
-            default: input = KEY_NONE;
+            case 'g': input = KEY_PICKUP; break;
+            case 'd': input = KEY_DROP; break;
+            default: input = KEY_NONE; printf("char %c pressed\n",inchar);
         }
     }else {
         // a menu is open. send key directly to menu handler
@@ -150,6 +159,111 @@ void Game::addInput(char inchar)
     
     inputs.push(input);
     turnOn();
+}
+
+void Game::dropMenuHandler_s(void* t, char c)
+{
+    ((Game*)t)->dropMenuHandler(c);
+}
+void Game::dropMenuHandler(char c)
+{
+    if(c == 'i')
+    {
+        exitMenu();
+        return;
+    }
+    int opt = c-'a';
+    if(opt >= currentMenu->numOptions)
+        return;
+    
+    entity_t ent = currentMenu->options[opt].ent;
+    
+    dropItem(ent);
+    exitMenu();
+}
+
+float Game::pickUpItems()
+{
+    // for each pickable, non-owned items in this position
+    entity_t ent;
+    for(ent = 0; ent < maxEntities; ent++)
+    {
+        if(world->mask[ent] & COMP_PICKABLE && ! (world->mask[ent] & COMP_OWNED) && distFloat3(world->position[ent],world->position[player]) < .9)
+        {
+            // set owned. make non-visible. set move_type to MOV_WIELDED?
+            char s [32];
+            sprintf(s,"Picking up %s\n",world->pickable[ent].name);
+            addToLog(s);
+            world->mask[ent] = (world->mask[ent] | COMP_OWNED) & ~COMP_IS_VISIBLE;
+            world->move_type[ent] = MOV_WIELDED;
+        }
+    }
+    return 1;
+}
+
+void Game::dropItem(entity_t ent)
+{
+    char s [32];
+    sprintf(s,"Dropping %s\n",world->pickable[ent].name);
+    
+    addToLog(s);
+    
+        // make visible and give it a location etc
+    world->mask[ent] = (world->mask[ent] | COMP_CAN_MOVE | COMP_POSITION | COMP_IS_VISIBLE) ^ COMP_OWNED ; // no longer owned
+    world->move_type[ent] = MOV_FREE;
+    world->position[ent] = {world->position[player].x,world->position[player].y,world->position[player].z};
+    world->velocity[ent] = {0,0,0};
+
+    if(world->pickable[ent].type & ITM_BANDAGE)
+    {
+        sprintf(world->is_visible[ent].lookString,"Bandages");
+        // placeholder
+        world->is_visible[ent].tex = 200;       //TODO: draw
+        world->is_visible[ent].tex_side = 200;
+    }else if(world->pickable[ent].type & ITM_FLARE)
+    {
+        sprintf(world->is_visible[ent].lookString,"Flares");
+        // placeholder
+        world->is_visible[ent].tex = 201;       //TODO: draw
+        world->is_visible[ent].tex_side = 201;
+    }else if(world->pickable[ent].type & ITM_CHOCOLATE)
+    {
+        sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
+        // placeholder
+        world->is_visible[ent].tex = 202;       //TODO: draw
+        world->is_visible[ent].tex_side = 202;
+    }if(world->pickable[ent].type & ITM_ANCHOR)
+    {
+        sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
+        // placeholder
+        world->is_visible[ent].tex = 203;       //TODO: draw
+        world->is_visible[ent].tex_side = 203;
+    }else if(world->pickable[ent].type & ITM_INSTRUMENT)
+    {
+        sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
+        // placeholder
+        world->is_visible[ent].tex = 204;       //TODO: draw
+        world->is_visible[ent].tex_side = 204;
+    }else if(world->pickable[ent].type & ITM_LIGHT)
+    {
+        sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
+        // placeholder
+        world->is_visible[ent].tex = 205;       //TODO: draw
+        world->is_visible[ent].tex_side = 205;
+    }
+    
+    
+        /*
+        case ITM_BANDAGE: useBandage(ent); break;
+        case ITM_FLARE: wieldFlare(ent); break;
+        case ITM_CHOCOLATE: eat(ent); break;
+        case ITM_ANCHOR: useAnchor(ent); break;
+        case ITM_INSTRUMENT: playInstrument(ent); break;
+        case ITM_LIGHT: toggleLight(ent); break;
+        default: printf("Can't drop this item yet\n");
+       // default: printf("pushed %c, got item %s\n",c,world->pickable[ent].name);
+    }*/
+    return;
 }
 
 void Game::inventoryMenuHandler_s(void * t,char c)
@@ -164,6 +278,9 @@ void Game::inventoryMenuHandler(char c)
         return;
     }
     int opt = c-'a';
+    if(opt >= currentMenu->numOptions)
+        return;
+    
     entity_t ent = currentMenu->options[opt].ent;
     
     switch (world->pickable[ent].type)
@@ -172,16 +289,27 @@ void Game::inventoryMenuHandler(char c)
         case ITM_FLARE: wieldFlare(ent); break;
         case ITM_CHOCOLATE: eat(ent); break;
         case ITM_ANCHOR: useAnchor(ent); break;
+        case ITM_INSTRUMENT: playInstrument(ent); break;
+        case ITM_LIGHT: toggleLight(ent); break;
         default: printf("pushed %c, got item %s\n",c,world->pickable[ent].name);
     }
     exitMenu();
 }
 
-void Game::displayInventory()
+void Game::displayInventory(int action) // 0 for use, 1 for drop, ...
 {
-    currentMenu = (Menu*) malloc(sizeof(Menu));
-    currentMenu->menuHandler = &inventoryMenuHandler_s;
-    sprintf(currentMenu->name,"Inventory");
+    currentMenu = (Menu*) malloc(sizeof(Menu)); // freed in exitMenu()
+    
+    switch(action)
+    {
+        case 0: currentMenu->menuHandler = &inventoryMenuHandler_s;
+                sprintf(currentMenu->name,"Inventory");
+                break;
+        case 1: currentMenu->menuHandler = &dropMenuHandler_s;
+                sprintf(currentMenu->name,"Drop Item");
+                break;
+        default: printf("Unknown inventory menu action: %d\n",action);
+    }
     
     MenuOption* options = currentMenu->options;
 
@@ -203,6 +331,9 @@ void Game::displayInventory()
     currentMenu->y = numItems+3;
     currentMenu->numOptions = numItems;
 }
+
+
+
 void Game::addToLog(std::string str)
 {
     int numEntries = log.size();
@@ -256,10 +387,7 @@ void Game::doSystems()
             timeStep = toggleClimb();
         }else if(input & KEY_INVENTORY)
         {
-            displayInventory();
-        }else if(input & KEY_BANDAGE)
-        {
-            timeStep = useBandage();
+            displayInventory(0);
         }else if(input & KEY_ORIENTEER)
         {
             char s[32];
@@ -271,10 +399,22 @@ void Game::doSystems()
         }else if(input & KEY_EXAMINE)
         {
             lookReport();
+        }else if(input & KEY_PICKUP)
+        {
+            // pickup items from this tile
+            pickUpItems();
+        }else if(input & KEY_DROP)
+        {
+            // open inventory menu for dropping
+            displayInventory(1);
         }
     }
     // step simulation
     // grab an event. take timestep. //TODO: fix this so it works as intended. Maybe Looking/Floating should take a teensy bit of time? Or maybe control input shouldn't be stupid and trigger spurious doSystems() calls. //update: maybe fixed now?
+    
+    // update facing
+    pc.facing = normaliseFloat3(world->velocity[player]);
+    
     energy->exec(timeStep);
     movement->exec(timeStep);
     heal(timeStep);
@@ -559,7 +699,7 @@ void Game::toggleLook()
     {
         printf("look mode on\n");
         look = world->createEntity();
-        world->mask[look] = COMP_IS_PLAYER_CONTROLLED | COMP_CAN_MOVE | COMP_POSITION | COMP_VELOCITY | COMP_IS_VISIBLE;
+        world->mask[look] = COMP_IS_PLAYER_CONTROLLED | COMP_CAN_MOVE | COMP_POSITION | COMP_IS_VISIBLE;
         world->is_visible[look].tex = 3;
         world->is_visible[look].tex_side = 3;
         world->position[look] = world->position[player];
@@ -623,8 +763,9 @@ float Game::toggleClimb()
 entity_t Game::createLitFlare(Float3 pos)
 {
     entity_t flare = world->createEntity();
-    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_VELOCITY | COMP_COUNTER;
+    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_COUNTER;
     world->light_source[flare].brightness = 5.0;
+    world->light_source[flare].color = {1,0,0};
     world->is_visible[flare].tex = 4;
     world->is_visible[flare].tex_side = 4;
     sprintf(world->is_visible[flare].lookString,"a lit flare");
@@ -634,6 +775,7 @@ entity_t Game::createLitFlare(Float3 pos)
     world->counter[flare].type = CNT_FLARE;
     world->counter[flare].max = 25; //lasts for 25 steps
     world->counter[flare].count = world->counter[flare].max;
+    world->counter[flare].on = 1;
     return flare;
 }
 
@@ -696,6 +838,30 @@ float Game::throwFlare()
     return 0;
 }
 
+void Game::getFlashlight()
+{
+    entity_t light = world->createEntity();
+    world->mask[light] = COMP_OWNED | COMP_PICKABLE | COMP_COUNTER;
+    sprintf(world->pickable[light].name,"Flashlight");
+    world->pickable[light].type = ITM_LIGHT;
+    world->pickable[light].stack = 1;
+    world->pickable[light].maxStack = 1;
+    world->counter[light].max = 100;
+    world->counter[light].count = 100;
+    world->counter[light].on = 0;
+    world->counter[light].type = CNT_ELECTRIC;
+}
+
+void Game::getFlute()
+{
+    entity_t flute = world->createEntity();
+    world->mask[flute] = COMP_OWNED | COMP_PICKABLE;
+    sprintf(world->pickable[flute].name,"Flute");
+    world->pickable[flute].type = ITM_INSTRUMENT;
+    world->pickable[flute].stack = 1;
+    world->pickable[flute].maxStack = 1;
+}
+
 void Game::getAnchors()
 {
     int numAnchors = 6;
@@ -717,7 +883,7 @@ void Game::getStartingFoods()
     world->pickable[ent].stack = 2;
     world->pickable[ent].maxStack = 10;
     world->edible[ent].calories = 300;
-    world->edible[ent].moodMod = 10;
+    world->edible[ent].moodMod = 45;
     world->edible[ent].quench = -.05;
 
     // One big sandwich
@@ -728,7 +894,7 @@ void Game::getStartingFoods()
     world->pickable[ent].stack = 1;
     world->pickable[ent].maxStack = 1;
     world->edible[ent].calories = 1200;
-    world->edible[ent].moodMod = 5;
+    world->edible[ent].moodMod = 30;
     world->edible[ent].quench = -.1;
     
     // Bottle of apple juice
@@ -739,7 +905,7 @@ void Game::getStartingFoods()
     world->pickable[ent].stack = 1;
     world->pickable[ent].maxStack = 1;
     world->edible[ent].calories = 50;
-    world->edible[ent].moodMod = 10;
+    world->edible[ent].moodMod = 20;
     world->edible[ent].quench = 2;
 }
 void Game::getFlares(int num)
@@ -862,6 +1028,64 @@ float Game::useAnchor(entity_t anchor)
     return 1;
 }
 
+float Game::playInstrument(entity_t inst)
+{
+    char s[64];
+    
+    float success = frand(0,1);
+    
+    // modify success by current mood. Mood is ..0 to 100..
+    // flute should be effective when mood is not great, but not terrible.
+    float moodMod = fmin(pc.mood/50,2);
+    success = success * moodMod;
+    if(success > 0.9)
+    {
+        sprintf(s,"The tones of your %s harmonize with their twisted echoes",world->pickable[inst].name);
+        pc.mood += 10;
+    }else if(success > 0.3)
+    {
+        sprintf(s,"You play your %s",world->pickable[inst].name);
+        pc.mood += 1;
+    }else
+    {
+        sprintf(s,"The echoes of your %s sound like tortured souls",world->pickable[inst].name);
+        pc.mood -= 1;
+    }
+    addToLog(s);
+    return 10;
+}
+
+float Game::toggleLight(entity_t light)
+{
+    if(world->counter[light].on) // if on, turn off
+    {
+        char s[32];
+        sprintf(s,"The %s switches off.",world->pickable[light].name);
+        addToLog(s);
+        world->mask[light] -= (COMP_DIRLIGHT + COMP_CAN_MOVE);
+        world->counter[light].on = 0;
+    }else if(world->counter[light].count > 0) // if not empty, turn on
+    {
+        char s[32];
+        sprintf(s,"The %s turns on.",world->pickable[light].name);
+        addToLog(s);
+
+        world->mask[light] += (COMP_DIRLIGHT + COMP_CAN_MOVE);
+        world->counter[light].on = 1;
+        world->light_source[light].brightness = 20;
+        world->light_source[light].color = {1,1,1};
+        world->light_source[light].width = 15; // +-15°
+        world->move_type[light] = MOV_WIELDED;
+    }else
+    {
+        char s[32];
+        sprintf(s,"The %s has no power.",world->pickable[light].name);
+        addToLog(s);
+
+    }
+    return 0;
+}
+
 float Game::jump()
 {
     // no double-jump! Can't jump if you're free falling
@@ -935,13 +1159,16 @@ void Game::updateCounters(float timeStep)
     {
         if(world->mask[ent] & COMP_COUNTER)
         {
-            world->counter[ent].count -= timeStep;
-            if(world->counter[ent].count <= 0) // counter runs out!
+            if(world->counter[ent].on > 0)
             {
-                switch(world->counter[ent].type)
+                world->counter[ent].count -= timeStep;
+                if(world->counter[ent].count <= 0) // counter runs out!
                 {
-                    case CNT_FLARE: world->destroyEntity(ent); break;
-                    case CNT_ELECTRIC: /*TODO: turn off */; break;                    
+                    switch(world->counter[ent].type)
+                    {
+                        case CNT_FLARE: world->destroyEntity(ent); break;
+                        case CNT_ELECTRIC: toggleLight(ent); break; // TODO: generalise pls
+                    }
                 }
             }
         }
@@ -979,13 +1206,48 @@ void Game::heal(float timeStep)
     pc.hunger += hungerGrowth;
 }
 
+char* Game::getMoodDescription(float mood)
+{
+    char* m = moodDesc;
+    if(mood < 0)
+    {
+        sprintf(m,"Despairing");
+    }else if(mood < 10)
+    {
+        sprintf(m,"Despondent");
+    }else if(mood < 25)
+    {
+        sprintf(m,"Miserable");
+    }else if(mood < 40)
+    {
+        sprintf(m,"Unhappy");
+    }else if(mood < 60)
+    {
+        sprintf(m,"Managing");
+    }else if(mood < 85)
+    {
+        sprintf(m,"Ok");
+    }else if(mood < 100)
+    {
+        sprintf(m,"Focused");
+    }else if(mood < 120)
+    {
+        sprintf(m,"Determined");
+    }else if(mood < 200)
+    {
+        sprintf(m,"Thriving");
+    }else
+        sprintf(m,"Euphoric");
+    return m;
+}
+
 float Game::lighting(Float3 p)
 {
     // find ents with the right components
     entity_t ent;
     
     p = sumFloat3(p, {0,0,.5});
-    int mask = COMP_OMNILIGHT;
+    int mask = COMP_OMNILIGHT | COMP_DIRLIGHT;
     float light = 0;
  //   printf("\t%f %f %f\n",p.x,p.y,p.z);
     
@@ -996,8 +1258,46 @@ float Game::lighting(Float3 p)
             // check distance and visibility to this entity
             Float3 sourcePos = {world->position[ent].x,world->position[ent].y,world->position[ent].z};
             sourcePos = sumFloat3(sourcePos, {0.5,0.5,0.5});
-   //         printf("\tsource at %f %f %f\n",sourcePos.x,sourcePos.y,sourcePos.z);
-            //int isVisible = pointVisibility(sourcePos, p);
+   
+            // if directional, check whether it's within light cone
+            if(world->mask[ent] & COMP_DIRLIGHT)
+            {
+                // direction between point p and the light's position
+                Float3 pointDir = normaliseFloat3(diffFloat3(p, sourcePos));
+                
+                // all dir-lights have the player's direction? yeah for now why not.
+                // TODO: implement dirlights with their own direction
+                Float3 lightDir = {0,0,0};
+                if(look != 0) // if player is Looking about
+                {
+                    Float3 la = PosInt2Float3(lookAt);
+                    lightDir = normaliseFloat3(diffFloat3({la.x,la.y,la.z}, world->position[player]));
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    {
+                        lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
+                    }
+                
+                }else
+                {
+                    // light direction from player's facing
+                    lightDir = normaliseFloat3(pc.facing);
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    {
+                        lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
+                    }
+                }
+                
+                // TODO: fix for short ranges? point down more when shining short distance at empty air?
+                lightDir = normaliseFloat3({lightDir.x,lightDir.y,(float)(lightDir.z-0)});
+                // what is the angle between? arccos( v1 dot v2 )
+                float dot = dotFloat3(lightDir, pointDir);
+                if(dot <= 0)
+                    continue;
+                float angle = fabs(acosf(dot)*180.0/M_PI); // in degrees
+                if(angle > world->light_source[ent].width)
+                    continue;
+            }
+            
             if(pointVisibility(sourcePos, p) \
                 || pointVisibility(sumFloat3(sourcePos,{-0.45,0,0}),p) \
                 || pointVisibility(sumFloat3(sourcePos,{0,-0.45,0}),p) \
@@ -1017,11 +1317,91 @@ float Game::lighting(Float3 p)
     return light;
 }
 
+Float3 Game::lighting3f(Float3 p)
+{
+    Float3 light = {0,0,0};
+    // find ents with the right components
+    entity_t ent;
+    
+    p = sumFloat3(p, {0,0,.5});
+    int mask = COMP_OMNILIGHT | COMP_DIRLIGHT;
+    for(ent = 0; ent<maxEntities; ent++)
+    {
+        if(world->mask[ent] & mask)
+        {
+            // check distance and visibility to this entity
+            Float3 sourcePos = {world->position[ent].x,world->position[ent].y,world->position[ent].z};
+            sourcePos = sumFloat3(sourcePos, {0.5,0.5,0.5});
+            
+            //if source is very far and quite weak, abort here.
+            float distance = distFloat3(sourcePos, p);
+            float l = world->light_source[ent].brightness / (distance*distance);
+            
+            if(l < 0.05)
+                continue;
+            
+            // if directional, check whether it's within light cone
+            if(world->mask[ent] & COMP_DIRLIGHT)
+            {
+                // direction between point p and the light's position
+                Float3 pointDir = normaliseFloat3(diffFloat3(p, sourcePos));
+                
+                // all dir-lights have the player's direction? yeah for now why not.
+                // TODO: implement dirlights with their own direction
+                Float3 lightDir = {0,0,0};
+                if(look != 0) // if player is Looking about
+                {
+                    Float3 la = PosInt2Float3(lookAt);
+                    lightDir = normaliseFloat3(diffFloat3({la.x,la.y,la.z}, world->position[player]));
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    {
+                        lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
+                    }
+                    
+                }else
+                {
+                    // light direction from player's facing
+                    lightDir = normaliseFloat3(pc.facing);
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    {
+                        lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
+                    }
+                }
+                
+                // TODO: fix for short ranges? point down more when shining short distance at empty air?
+                lightDir = normaliseFloat3({lightDir.x,lightDir.y,(float)(lightDir.z-0)});
+                // what is the angle between? arccos( v1 dot v2 )
+                float dot = dotFloat3(lightDir, pointDir);
+                if(dot <= 0)
+                    continue;
+                float angle = fabs(acosf(dot)*180.0/M_PI); // in degrees
+                if(angle > world->light_source[ent].width)
+                    continue;
+            }
+            
+            if(pointVisibility(sourcePos, p) \
+               || pointVisibility(sumFloat3(sourcePos,{-0.45,0,0}),p) \
+               || pointVisibility(sumFloat3(sourcePos,{0,-0.45,0}),p) \
+               || pointVisibility(sumFloat3(sourcePos,{0.45,0,0}),p) \
+               || pointVisibility(sumFloat3(sourcePos,{0,0.45,0}),p) \
+               || pointVisibility(sumFloat3(sourcePos,{0,0,-0.45}),p) \
+               || pointVisibility(sumFloat3(sourcePos,{0,0,0.45}),p) \
+               )
+            {
+                light = sumFloat3(light,mulFloat3(world->light_source[ent].color,l));
+            }
+            //TODO (for better vertical coverage): try shifting sourcePos around north/south and east/west and retesting
+        }
+    }
+    return minFloat3({1,1,1},light);
+    //return {1,1,1};
+}
+
 int Game::pointVisibility(Float3 f, Float3 t)
 {
     Float3 delta = diffFloat3(t, f);
     float distance = normFloat3(delta);
-    float stepSize = 0.1;
+    float stepSize = 0.2;
     delta = mulFloat3(delta, stepSize/distance);
     
     Float3 p = f;

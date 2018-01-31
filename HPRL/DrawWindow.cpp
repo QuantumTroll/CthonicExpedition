@@ -47,6 +47,45 @@ DrawWindow::DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g):F
     tile_height = 2.0*((float)drawPane_width/H)/tiles_on_screen_x;
     tiles_on_screen_y = tiles_on_screen_x * tile_width/tile_height;
     printf("tiles on screen x=%d, tiles on screen y=%d\n",tiles_on_screen_x,tiles_on_screen_y);
+    
+    mainScreen_x = tiles_on_screen_x;
+    mainScreen_y = tiles_on_screen_y;
+    
+    // initialise the shade matrices
+    int i, j,k;
+    
+    shade_main = (Float3 ***)malloc(mainScreen_x * sizeof(Float3 *));
+    for(i=0; i<mainScreen_x; i++)
+    {
+        shade_main[i] = (Float3 **)malloc(mainScreen_y * sizeof(Float3*));
+        for(j=0; j<mainScreen_y; j++)
+        {
+            shade_main[i][j] = (Float3 *)malloc(4 * sizeof(Float3));
+            for(k=0; k<4; k++)
+            {
+                shade_main[i][j][k] = {0,0,0};
+            }
+        }
+    }
+    
+    sidePanel_x = tiles_on_screen_x/4+1;
+    sidePanel_y = tiles_on_screen_y;
+    sidePanelX_y = tiles_on_screen_y/2;
+    sidePanelY_y = tiles_on_screen_y/2;
+    shade_side = (Float3 ***)malloc(sidePanel_x * sizeof(Float3 *));
+    for(i=0; i < sidePanel_x; i++)
+    {
+        shade_side[i] = (Float3 **)malloc(sidePanel_y * sizeof(Float3*));
+        for(j=0; j<sidePanel_y; j++)
+        {
+            shade_side[i][j] = (Float3 *)malloc(4 * sizeof(Float3));
+            for(k=0; k<4; k++)
+            {
+                shade_side[i][j][k] = {0,0,0};
+            }
+        }
+    }
+    //printf("shade_side is of size %d %d %d\n",sidePanel_x ,sidePanel_y,4);
 }
 
 
@@ -59,8 +98,11 @@ void DrawWindow::draw() {
         glViewport(0, 0, w(), h());
         glMatrixMode(GL_PROJECTION);
         
-	    glClearColor(0,0,0,0);
+	    glClearColor(0,0,0,1);
+        //glClearColor(1,1,1,1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDepthFunc(GL_ALWAYS);
+        glDisable(GL_DEPTH_TEST);
         glLoadIdentity();
        
         
@@ -111,22 +153,32 @@ void DrawWindow::draw() {
         thefont = glfLoadFont(f);
         //printf("thefont %d\n", thefont);
     }
-    glDrawBuffer(GL_BACK_LEFT);
+
+   // glDrawBuffer(GL_BACK_LEFT);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  //  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    
     
     glPushMatrix();
     glTranslatef(-1, -1, 0);
     
+        //TODO: add e.g. "Z = +1" if showing z+1 from player.
     drawTiles();
+    shadeMain();
     
+    //TODO: add e.g. "Y = +1" if showing y+1 from player, ditto for X.
     drawSidePanel();
+    shadeSidePanel();
+    
+    zeroShade();
     
     drawBottomPanel();
     
     drawCurrentMenu();
     
     glPopMatrix();
+   
+
     
     glFlush();
 }
@@ -150,41 +202,89 @@ void DrawWindow::drawTile(int x, int y, int tx, int ty)
     drawTile(x,y,tex);
 }
 
-void DrawWindow::drawTile(int x, int y, int tex, float tl, float tr, float br, float bl)
+void DrawWindow::drawTile(int x, int y, int tex)
 {
 //    tl = 1; tr = 1; bl = 1; br = 1;
     int tx, ty, tx2, ty2;
-    tl *=2;    tr *=2;    bl *=2;    br *=2;
+   // tl *=2;    tr *=2;    bl *=2;    br *=2;
     // get the tile's texture coords
     tx = tex*tex_width % ts_width; // index*width per tile % tileset width
     ty = tex*tex_width/ts_width*tex_height;
     //printf("%d,%d,%d: %d,%d\n",x,y,tex,tx,ty);
     tx2 = tx+tex_width;
     ty2 = ty+tex_height;
-    
+    glBlendEquation(GL_ADD);
     glPushMatrix();
     glTranslatef(tile_width*x, tile_height*y, 0);
+    glEnable(GL_TEXTURE_2D);
+    glEnable (GL_TEXTURE_RECTANGLE_ARB);
+    glEnable(GL_BLEND);
+    //glEnable(GL_LIGHTING);
     glBegin(GL_QUADS);
-    glNormal3f(cosf(tl*M_2_PI),0,sinf(tl*M_2_PI));
+  //  glNormal3f(cosf(tl*M_2_PI),0,sinf(tl*M_2_PI));
     glTexCoord2d(tx,ty);   glVertex3f(0,tile_height,0);
-    glNormal3f(cosf(tr*M_2_PI),0,sinf(tr*M_2_PI));
+  //  glNormal3f(cosf(tr*M_2_PI),0,sinf(tr*M_2_PI));
     glTexCoord2d(tx2,ty);  glVertex3f(tile_width,tile_height,0);
-    glNormal3f(cosf(br*M_2_PI),0,sinf(br*M_2_PI));
+  //  glNormal3f(cosf(br*M_2_PI),0,sinf(br*M_2_PI));
     glTexCoord2d(tx2,ty2); glVertex3f(tile_width,0,0);
-    glNormal3f(cosf(bl*M_2_PI),0,sinf(bl*M_2_PI));
+  //  glNormal3f(cosf(bl*M_2_PI),0,sinf(bl*M_2_PI));
     glTexCoord2d(tx,ty2);  glVertex3f(0,0,0);
     glEnd();
+    
     glPopMatrix();
 }
 
-void DrawWindow::drawTile(int x, int y, int tex)
+void DrawWindow::shadeTile(int x, int y, Float3 tl, Float3 tr, Float3 br, Float3 bl)
 {
-    drawTile(x,y,tex,1,1,1,1);
+    glEnable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+    glDisable (GL_TEXTURE_RECTANGLE_ARB);
+    glDisable(GL_LIGHTING);
+   // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendEquation(GL_MIN);
+
+    glBlendFunc(GL_DST_COLOR, GL_ZERO);
+    glBlendEquation(GL_ADD);
+    glPushMatrix();
+    glTranslatef(tile_width*x, tile_height*y, 0);
+    glBegin(GL_QUADS);
+    float f = 1;
+    float g = .5;
+   // glColor4f(g,g,g,1);
+    //glColor4f(.1,.5,.5,.5);
+    glColor4f(tl.x,tl.y,tl.z,f);
+    glVertex3f(0,tile_height,1);
+    
+    glColor4f(tr.x,tr.y,tr.z,f);
+    glVertex3f(tile_width,tile_height,1);
+
+    glColor4f(br.x,br.y,br.z,f);
+    glVertex3f(tile_width,0,1);
+
+    glColor4f(bl.x,bl.y,bl.z,f);
+    glVertex3f(0,0,1);
+    glColor4f(1,1,1,1);
+    glEnd();
+    glPopMatrix();
+    glBlendEquation(GL_ADD);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 }
 
 
 // draw landscape "tiles" in main window
-void DrawWindow::drawTiles() {
+void DrawWindow::drawTiles()
+{
+    glEnable( GL_BLEND) ;
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Enable the texture for OpenGL.
+    glEnable(GL_TEXTURE_2D);
+    glEnable (GL_TEXTURE_RECTANGLE_ARB);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); //GL_NEAREST = no smoothing
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, 4, ts_width, ts_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &tileset[0]);
+
     
     glPushMatrix();
     
@@ -227,6 +327,7 @@ void DrawWindow::drawTiles() {
             
             int depth = 0;
             int depth_max = 8;
+
             for(depth = 0; depth < depth_max; depth ++)
             {
                 int zm = z - depth;
@@ -249,33 +350,42 @@ void DrawWindow::drawTiles() {
                         
                         float q = 0.49;
                         //  printf("tl");
-                        float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
+                    /*    float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
                         // printf("tr");
                         float tr = fmin(1,game->lighting(sumFloat3(tp,{q,q,0})));
                         // printf("br");
                         float br = fmin(1,game->lighting(sumFloat3(tp,{q,-q,0})));
                         // printf("bl");
-                        float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));
+                        float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));*/
+                        
+                        shade_main[i][j][0] = game->lighting3f(sumFloat3(tp,{-q,q,0}));
+                        shade_main[i][j][1] = game->lighting3f(sumFloat3(tp,{q,q,0}));
+                        shade_main[i][j][2] = game->lighting3f(sumFloat3(tp,{q,-q,0}));
+                        shade_main[i][j][3] = game->lighting3f(sumFloat3(tp,{-q,-q,0}));
                         
                        // tl = 1; tr = 1; br = 1; bl = 1;
                         if (depth== 0){
-                            drawTile(i,j,tile->tex,tl,tr,br,bl);
+                            drawTile(i,j,tile->tex); //,tl,tr,br,bl);
                         }else {
-                            drawTile(i,j,tile->tex_surface,tl,tr,br,bl);
+                            drawTile(i,j,tile->tex_surface); //,tl,tr,br,bl);
                         }
                         depth = depth_max;
-                        float light = (tl+tr+br+bl)*0.25;
+                        float light; // = (tl+tr+br+bl)*0.25;
+                        light = (normFloat3(shade_main[i][j][0])+normFloat3(shade_main[i][j][1])+normFloat3(shade_main[i][j][2])+normFloat3(shade_main[i][j][3]))*0.25;
                         game->setWasSeen(tile,light);
                     }else if(game->wasSeen(tile) > 0){ //if outside LoS, check memory, draw from memory
                         float l = game->wasSeen(tile);
                         if (depth== 0){
-                            drawTile(i,j,tile->tex,l,l,l,l);
-                            drawTile(i,j,memorytex,l,l,l,l);
+                            drawTile(i,j,tile->tex);
+                            drawTile(i,j,memorytex);
                         }else if(depth == 1){
-                            drawTile(i,j,tile->tex_surface,l,l,l,l);
-                            drawTile(i,j,memorytex,l,l,l,l);
+                            drawTile(i,j,tile->tex_surface);
+                            drawTile(i,j,memorytex);
                         }
-                        
+                        shade_main[i][j][0] = {l,l,l};
+                        shade_main[i][j][1] = {l,l,l};
+                        shade_main[i][j][2] = {l,l,l};
+                        shade_main[i][j][3] = {l,l,l};
                     }
                 }
                 
@@ -347,21 +457,63 @@ void DrawWindow::drawWorld()
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                     
                     float q = 0.49;
-                    //  printf("tl");
-                    float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
-                    // printf("tr");
-                    float tr = fmin(1,game->lighting(sumFloat3(tp,{q,q,0})));
-                    // printf("br");
-                    float br = fmin(1,game->lighting(sumFloat3(tp,{q,-q,0})));
-                    // printf("bl");
-                    float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));
 
                     // draw the entity
                     int tex = world->is_visible[ent].tex;
-                    drawTile(i,j,tex,tl,tr,br,bl);
+                    drawTile(i,j,tex);//,tl,tr,br,bl);
                     
                     //TODO: don't draw lower-z ents over higher-z ents
+                    //TODO: check light level and shade if necessary
                 }
+            }
+        }
+    }
+}
+
+void DrawWindow::shadeMain()
+{
+    glPushMatrix();
+    
+    // main window offset
+    glTranslatef(0,.5,0);
+    
+    int i,j;
+    
+    for(i=0; i<tiles_on_screen_x; i++)
+    {
+        for(j=0; j<tiles_on_screen_y; j++)
+        {
+         //   printf("%d %d: %f %f %f %f\n",i,j,shade_main[i][j][0].x,shade_main[i][j][1].x,shade_main[i][j][2].x,shade_main[i][j][3].x);
+            shadeTile(i,j,shade_main[i][j][0],shade_main[i][j][1],shade_main[i][j][2],shade_main[i][j][3]);
+            //int t = (int)(shade_main[i][j][0].x*100);
+            //drawTile(i,j,t);
+        }
+    }
+    glPopMatrix();
+    
+}
+
+void DrawWindow::zeroShade()
+{
+    int i, j,k;
+    
+    for(i=0; i<mainScreen_x; i++)
+    {
+        for(j=0; j<mainScreen_y; j++)
+        {
+            for(k=0; k<4; k++)
+            {
+                shade_main[i][j][k] = {0,0,0};
+            }
+        }
+    }
+    for(i=0; i < sidePanel_x; i++)
+    {
+        for(j=0; j<sidePanel_y; j++)
+        {
+            for(k=0; k<4; k++)
+            {
+                shade_side[i][j][k] = {0,0,0};
             }
         }
     }
@@ -379,6 +531,41 @@ void DrawWindow::drawSidePanel()
     drawWorldX();
     drawCrossY();
     drawWorldY();
+}
+
+// shade side-panel.
+void DrawWindow::shadeSidePanel()
+{
+    glPushMatrix();
+    
+    int i,j;
+   // int tilesWide = tiles_on_screen_x/4;
+    int xOffset = tiles_on_screen_x + 1;
+    int yOffset = 2; //tiles_on_screen_y - tilesWide*3 + 1;
+    for(i=0; i<sidePanel_x; i++)
+    {
+        for(j=0; j<sidePanelX_y; j++)
+        {
+           // printf("%d %d: %f %f %f %f\n",i,j,shade_main[i][j][0].x,shade_main[i][j][1].x,shade_main[i][j][2].x,shade_main[i][j][3].x);
+            shadeTile(i+xOffset,j+yOffset,shade_side[i][j][0],shade_side[i][j][1],shade_side[i][j][2],shade_side[i][j][3]);
+            //int t = (int)(shade_main[i][j][0].x*100);
+            //drawTile(i,j,t);
+        }
+    }
+    yOffset = sidePanelX_y+3;
+    for(i=0; i<sidePanel_x; i++)
+    {
+        for(j=0; j<sidePanelY_y; j++)
+        {
+            // printf("%d %d: %f %f %f %f\n",i,j,shade_main[i][j][0].x,shade_main[i][j][1].x,shade_main[i][j][2].x,shade_main[i][j][3].x);
+            shadeTile(i+xOffset,j+yOffset,shade_side[i][j+sidePanelX_y][0],shade_side[i][j+sidePanelX_y][1],shade_side[i][j+sidePanelX_y][2],shade_side[i][j+sidePanelX_y][3]);
+            //int t = (int)(shade_main[i][j][0].x*100);
+            //drawTile(i,j,t);
+        }
+    }
+    glPopMatrix();
+    
+
 }
 
 void DrawWindow::drawWorldX()
@@ -428,19 +615,9 @@ void DrawWindow::drawWorldX()
                     
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                     
-                    float q = 0.49;
-                    //  printf("tl");
-                    float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,q})));
-                    // printf("tr");
-                    float tr = fmin(1,game->lighting(sumFloat3(tp,{q,0,q})));
-                    // printf("br");
-                    float br = fmin(1,game->lighting(sumFloat3(tp,{q,0,-q})));
-                    // printf("bl");
-                    float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,-q})));
-                    
                     // draw the entity
                     int tex = world->is_visible[ent].tex_side;
-                    drawTile(i+xOffset,j+yOffset,tex,tl,tr,br,bl);
+                    drawTile(i+xOffset,j+yOffset,tex);//,tl,tr,br,bl);
                 }
             }
         }
@@ -450,34 +627,37 @@ void DrawWindow::drawWorldX()
 
 void DrawWindow::drawCrossX()
 {
-    int tilesWide = tiles_on_screen_x/4;
+    //int tilesWide = tiles_on_screen_x/4;
     // bottom half draws along X axis
-    int xOffset = tiles_on_screen_x + 1;
-    int yOffset = tiles_on_screen_y - tilesWide*3 + 1;
+    int xOffset = tiles_on_screen_x+1;
+    int yOffset = 2;
+    
     PosInt p = Float32PosInt(world->position[game->getPlayerEntity()]);
-    int pz = game->getLookAt().z-(int)tilesWide*2/3-1;
+    int pz = game->getLookAt().z-sidePanelX_y/2;
     //printf("%d\n",pz);
-    int px = game->getLookAt().x-tilesWide/2;
+    int px = game->getLookAt().x-sidePanel_x/2;
     int py = game->getLookAt().y;
     int x, y, z, i, j, depth, max_depth = 1;
     y = py;
     
-    for(i = 0; i < tilesWide+1; i++)
+    for(i = 0; i < sidePanel_x; i++)
     {
         x = i + px;
         
-        for(j = 0; j < tilesWide*1.5; j++)
+        for(j = 0; j < sidePanelX_y; j++)
         {
             z = j + pz;
             
-            // drawTile(i+xOffset,j+yOffset,88,1,1,1,1,0, 0);
             for(depth = 0; depth < max_depth; depth++)
             {
                 int ym = y - depth;
                 
                 MapTile * tile = game->getTile(x,ym,z);
+                
                 // check if tile is viewable and player can see it
                 
+             //   printf("%d %d, %d %d\n",i+xOffset,j+yOffset,i+xOffset,j+tiles_on_screen_y - sidePanelX_y);
+                //drawTile(i+xOffset,j+yOffset,88);
                 if( tile->propmask & TP_ISVISIBLE)
                 {
                     //  and player can see it
@@ -488,34 +668,36 @@ void DrawWindow::drawCrossX()
                         tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                         
                         float q = 0.49;
-                        //  printf("tl");
-                        float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,q})));
-                        // printf("tr");
-                        float tr = fmin(1,game->lighting(sumFloat3(tp,{q,0,q})));
-                        // printf("br");
-                        float br = fmin(1,game->lighting(sumFloat3(tp,{q,0,-q})));
-                        // printf("bl");
-                        float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,0,-q})));
+                        
+                        shade_side[i][j][0] = game->lighting3f(sumFloat3(tp,{-q,0,q}));
+                        shade_side[i][j][1] = game->lighting3f(sumFloat3(tp,{q,0,q}));
+                        shade_side[i][j][2] = game->lighting3f(sumFloat3(tp,{q,0,-q}));
+                        shade_side[i][j][3] = game->lighting3f(sumFloat3(tp,{-q,0,-q}));
+
                         
                         // tl = 1;
                         // br = 1;
                         if (depth== 0){
-                            drawTile(i+xOffset,j+yOffset,tile->tex,tl,tr,br,bl);
+                            drawTile(i+xOffset,j+yOffset,tile->tex);//,tl,tr,br,bl);
                         }else {
-                            drawTile(i+xOffset,j+yOffset,tile->tex_surface,tl,tr,br,bl);
+                            drawTile(i+xOffset,j+yOffset,tile->tex_surface);//,tl,tr,br,bl);
                         }
-                        
+                        float light = (normFloat3(shade_side[i][j][0])+normFloat3(shade_side[i][j][1])+normFloat3(shade_side[i][j][2])+normFloat3(shade_side[i][j][3]))*0.25;
+                        game->setWasSeen(tile,light);
                         depth = max_depth;
                     } else if(game->wasSeen(tile) > 0){ //if outside LoS, check memory, draw from memory
                         float l = game->wasSeen(tile);
                         if (depth== 0){
-                            drawTile(i+xOffset,j+yOffset,tile->tex,l,l,l,l);
-                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,tile->tex);//,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex);//,l,l,l,l);
                         }else if(depth == 1){
-                            drawTile(i+xOffset,j+yOffset,tile->tex_surface,l,l,l,l);
-                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,tile->tex_surface);//,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex);//,l,l,l,l);
                         }
-                        
+                        shade_side[i][j][0] = {l,l,l};
+                        shade_side[i][j][1] = {l,l,l};
+                        shade_side[i][j][2] = {l,l,l};
+                        shade_side[i][j][3] = {l,l,l};
                     }
                 }
             }
@@ -581,7 +763,7 @@ void DrawWindow::drawWorldY()
                     
                     // draw the entity
                     int tex = world->is_visible[ent].tex_side;
-                    drawTile(i+xOffset,j+yOffset,tex,tl,tr,br,bl);
+                    drawTile(i+xOffset,j+yOffset,tex);//,tl,tr,br,bl);
                 }
             }
         }
@@ -591,26 +773,31 @@ void DrawWindow::drawWorldY()
 
 void DrawWindow::drawCrossY()
 {
-    int tilesWide = tiles_on_screen_x/4;
+   // int tilesWide = tiles_on_screen_x/4;
     // top half draws along Y axis at fixed X
-    int xOffset = tiles_on_screen_x + 1;
-    int yOffset = tiles_on_screen_y - tilesWide*1.5 + 2;
+    //int xOffset = tiles_on_screen_x + 1;
+    //int yOffset = tiles_on_screen_y - tilesWide*1.5 + 2;
+    int xOffset = tiles_on_screen_x+1;
+    int yOffset = sidePanelY_y+3;
+    
     
     PosInt p = Float32PosInt(world->position[game->getPlayerEntity()]);
     
-    int pz = game->getLookAt().z-(int)tilesWide*2/3-1;
+//    int pz = game->getLookAt().z-(int)tilesWide*2/3-1;
+    int pz = game->getLookAt().z-sidePanelY_y/2;
     int px = game->getLookAt().x;
-    int py = game->getLookAt().y-tilesWide/2;
+    int py = game->getLookAt().y-sidePanel_x/2;
     
     int x, y, z, i, j, depth, max_depth = 1;
     x = px;
-    for(i = 0; i < tilesWide+1; i++)
+    for(i = 0; i < sidePanel_x; i++)
     {
         y = i + py;
         
-        for(j = 0; j < tilesWide*1.5; j++)
+        for(j = 0; j < sidePanelY_y; j++)
         {
             z = j + pz;
+            int shadeOffset = sidePanelX_y;
             // drawTile(i+xOffset,j+yOffset,88,1,1,1,1,0, 0);
             for(depth = 0; depth < max_depth; depth++)
             {
@@ -629,33 +816,43 @@ void DrawWindow::drawCrossY()
                     
                     float q = 0.49;
                     //  printf("tl");
-                    float tl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,q})));
+                    /*float tl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,q})));
                     // printf("tr");
                     float tr = fmin(1,game->lighting(sumFloat3(tp,{0,q,q})));
                     // printf("br");
                     float br = fmin(1,game->lighting(sumFloat3(tp,{0,q,-q})));
                     // printf("bl");
-                    float bl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,-q})));
+                    float bl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,-q})));*/
+                        
+                        shade_side[i][j+shadeOffset][0] = game->lighting3f(sumFloat3(tp,{0,-q,q}));
+                        shade_side[i][j+shadeOffset][1] = game->lighting3f(sumFloat3(tp,{0,q,q}));
+                        shade_side[i][j+shadeOffset][2] = game->lighting3f(sumFloat3(tp,{0,q,-q}));
+                        shade_side[i][j+shadeOffset][3] = game->lighting3f(sumFloat3(tp,{0,-q,-q}));
                     
                     // tl = 1;
                     // br = 1;
                     if (depth== 0){
-                        drawTile(i+xOffset,j+yOffset,tile->tex,tl,tr,br,bl);
+                        drawTile(i+xOffset,j+yOffset,tile->tex);//,tl,tr,br,bl);
                     }else {
-                        drawTile(i+xOffset,j+yOffset,tile->tex_surface,tl,tr,br,bl);
+                        drawTile(i+xOffset,j+yOffset,tile->tex_surface);//,tl,tr,br,bl);
                     }
-                    
+                    float light = (normFloat3(shade_side[i][j+shadeOffset][0])+normFloat3(shade_side[i][j+shadeOffset][1])+normFloat3(shade_side[i][j+shadeOffset][2])+normFloat3(shade_side[i][j+shadeOffset][3]))*0.25;
+                    game->setWasSeen(tile,light);
                     depth = max_depth;
                     } else if(game->wasSeen(tile) > 0){ //if outside LoS, check memory, draw from memory
                         float l = game->wasSeen(tile);
                         if (depth== 0){
-                            drawTile(i+xOffset,j+yOffset,tile->tex,l,l,l,l);
-                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,tile->tex);//,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex);//,l,l,l,l);
                         }else if(depth == 1){
-                            drawTile(i+xOffset,j+yOffset,tile->tex_surface,l,l,l,l);
-                            drawTile(i+xOffset,j+yOffset,memorytex,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,tile->tex_surface);//,l,l,l,l);
+                            drawTile(i+xOffset,j+yOffset,memorytex);//,l,l,l,l);
                         }
-                        
+                        // TODO: shade from memory pls.
+                        shade_side[i][j+shadeOffset][0] = {l,l,l};
+                        shade_side[i][j+shadeOffset][1] = {l,l,l};
+                        shade_side[i][j+shadeOffset][2] = {l,l,l};
+                        shade_side[i][j+shadeOffset][3] = {l,l,l};
                     }
                 }
             }
@@ -670,13 +867,13 @@ void DrawWindow::drawBottomPanel()
     int i,j;
     
     // Paint "panel"
-    for(i = 0; i < tilesWide*4-1; i++)
+  /*  for(i = 0; i < tilesWide*4-1; i++)
     {
         for(j=0; j < tilesWide; j++)
         {
-            drawTile(1+i,j,11,.51,.51,.51,.51);
+            drawTile(1+i,j,11);//,.51,.51,.51,.51);
         }
-    }
+    }*/
     // draw log
     // TODO: let player toggle longer log with a button press
     log = game->getLog();
@@ -690,7 +887,7 @@ void DrawWindow::drawBottomPanel()
     
     // draw character info
     j = 4;
-    i = tilesWide*3+1;
+    i = tilesWide*3+2;
     
     Character* pc = game->getCharacter();
     print_text2(pc->name.c_str(),i,j);
@@ -706,6 +903,10 @@ void DrawWindow::drawBottomPanel()
         sprintf(s,"Bleeding");
         print_text2(s,i,j+1);
     }
+    
+    j = 1;
+    sprintf(s,"Mood: %s",game->getMoodDescription(pc->mood));
+    print_text2(s,i,j);
     
     // TODO: use tiles to creatively draw the character's orientation (walk/climb/jump).
 }
@@ -768,7 +969,7 @@ void DrawWindow::drawMenuBox(int x1, int y1, int x2, int y2)
     {
         for(j=y1; j<y2; j++)
         {
-            drawTile(i,j,11,.45,.45,.45,.45);
+            drawTile(i,j,11);//,.45,.45,.45,.45);
         }
     }
 }

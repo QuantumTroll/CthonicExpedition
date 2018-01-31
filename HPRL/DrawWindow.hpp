@@ -37,16 +37,30 @@ class DrawWindow : public Fl_Gl_Window {
     void drawTile(int x, int y, int tex);
     void drawTile(int x, int y, int tex, float size, int ramp, int depth);
     void drawTile(int x, int y, int tx, int ty);
-    void drawTile(int x, int y, int tex, float tl, float tr, float br, float bl);
-    void drawTile(int x, int y, int tex, float tl, float tr, float br, float bl, float size, int ramp);
+   // void drawTile(int x, int y, int tex, float tl, float tr, float br, float bl);
+   // void drawTile(int x, int y, int tex, float tl, float tr, float br, float bl, float size, int ramp);
+    void shadeTile(int x, int y, Float3 tl, Float3 tr, Float3 br, Float3 bl);
     std::vector<unsigned char> tileset;
     unsigned ts_width, ts_height;
     int tex_width, tex_height;
     float tile_width, tile_height;
     int tiles_on_screen_x, tiles_on_screen_y;
+    
+    int mainScreen_x, mainScreen_y;
+    int sidePanel_x, sidePanel_y;
+    int sidePanelX_y, sidePanelY_y;
+    
+    Float3 *** shade_main;
+    Float3 *** shade_side;
+    
+    void zeroShade();
+    
     void drawWorld();
+    void shadeMain();
     void drawSidePanel();
+    void shadeSidePanel();
     void drawBottomPanel();
+    // do I need a shadeBottomPanel()? Not rly.
     void drawCrossX();
     void drawCrossY();
     void drawWorldX();

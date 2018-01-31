@@ -67,6 +67,8 @@ private:
     
     PosInt lookAt;
     
+    char moodDesc [16];
+    
     void lookReport();
     
     int pointVisibility(Float3 f, Float3 t);
@@ -84,14 +86,24 @@ private:
     static void inventoryMenuHandler_s(void* t,char c);
     void inventoryMenuHandler(char c);
     
+    static void dropMenuHandler_s(void* t, char c);
+    void dropMenuHandler(char c);
+    
+    float pickUpItems();
+    void dropItem(entity_t ent);
+    
     void getFlares(int num);
     void getBandages(int num);
     void getStartingFoods();
     void getAnchors();
+    void getFlute();
+    void getFlashlight();
     float useBandage(entity_t bandage);
     float useBandage();
     float eat(entity_t food);
     float useAnchor(entity_t anchor);
+    float playInstrument(entity_t inst);
+    float toggleLight(entity_t light);
     
     int isOn;
 
@@ -133,10 +145,11 @@ public:
     MapTile* getTile(Float3 p);
     
     
+    char* getMoodDescription(float mood);
     
     std::deque<std::string> getLog() { return log; }
     void addToLog(std::string str);
-    void displayInventory();
+    void displayInventory(int action); // 0 for use, 1 for drop, ...
     
     Menu* getCurrentMenu() { return currentMenu; }
     void exitMenu(){ free(currentMenu); currentMenu = NULL;}
@@ -148,6 +161,7 @@ public:
     Character* getCharacter() { return &pc; }
     int visibility(PosInt from, PosInt to);
     float lighting(Float3 p);
+    Float3 lighting3f(Float3 p);
 };
 
 #endif /* Game_hpp */

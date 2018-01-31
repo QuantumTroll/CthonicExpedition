@@ -115,4 +115,68 @@ void EnergySystem::exec(float timestep)
     
     pc->hunger += moveCost*timestep / (100*500.0); // we're consuming calories here. Have 100 energy. How many full recoveries before you're starving? 1000 of them?
     pc->thirst += timestep*pc->bleed / 1000.0; // thirst just slowly grows with time. Much faster while you bleed.
+    
+    // mood evolution varies depending on many factors
+    float mm = getMoodMods();
+    pc->mood += timestep*mm;
+    
+    printf("mood %f\n",pc->mood);
+}
+
+// mood evolution varies depending on light, hunger, thirst, injury, mutation, number of held items, scientific progress ?, discovered cave features ?
+float EnergySystem::getMoodMods()
+{
+    float mm = 0;
+    
+    // entities with mood effects
+    int ent;
+    for(ent = 0; ent<maxEntities; ent++)
+    {
+        // check for wielded light sources
+        //TODO: also check for other types of light than omnilight, e.g. spotlight
+        if(world->mask[ent] & (COMP_OMNILIGHT | COMP_OWNED | COMP_CAN_MOVE) && world->move_type[ent] & MOV_WIELDED)
+        {
+            mm += 1;
+            printf("mood +1 wielded light\n");
+        }
+        
+        // just count how many things we still have. More is better.
+        // TODO: I question this a little. Is it comforting to have a pebble in your pocket?
+      /*  if(world->mask[ent] & COMP_OWNED)
+        {
+            mm += 0.05;
+        }*/
+    }
+    // whole, dry, and warm clothing is positive. The opposite is not.
+    // default armour is 3
+    mm -= 0.1*(3-pc->armour);
+    printf("mood %f torn clothes\n",- 0.1*(3-pc->armour));
+    
+    // hunger is depressing. Hunger is in [0, 1...), 0 not hungry
+    mm -= pc->hunger*pc->hunger;
+    printf("mood %f hunger\n",-pc->hunger*pc->hunger);
+    
+    // thirst is distressing. Thirst is in same range as hunger.
+    mm -= pc->thirst*pc->thirst;
+    printf("mood %f thirst\n",-pc->thirst*pc->thirst);
+    
+    // bruising hurts. Can be from 0 to 100
+    mm -= 0.01*(pc->bruise);
+    
+    // bleeding is very scary. Can be from 0 to 10 or higher
+    mm -= 0.5*pc->bleed;
+    
+    //TODO: exhaustion is depressing. resting feels good.
+    if(pc->energy > pc->maxEnergy*0.9)
+    {
+        mm += 0.2;
+        printf("mood +0.2 rested\n");
+    }else{
+        mm -= (1 - pc->energy/pc->maxEnergy);
+        printf("mood %f rested\n", -(1 - pc->energy/pc->maxEnergy));
+    }
+    //TODO: there will be mutations that make cave life more palatable
+    
+    
+    return mm;
 }

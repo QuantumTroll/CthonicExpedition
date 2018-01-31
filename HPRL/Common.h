@@ -21,12 +21,30 @@ const int maxEntities = 1024;
 const float sqrt2 = sqrtf(2.0);
 const float isqrt2 = 1.0/sqrt2;
 
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+} Float3;
+
+typedef struct {
+    int x;
+    int y;
+    int z;
+} PosInt;
+
+typedef struct {
+    int x, y, z;
+} int3;
+
+
 // Components
 typedef enum
 {
     COMP_NONE = 0,
     COMP_POSITION = 1 << 0,
-    COMP_VELOCITY = 1 << 1,
+    COMP_OWNED = 1 << 1,
     COMP_IS_PLAYER_CONTROLLED = 1 << 2,
     COMP_CAN_MOVE = 1 << 3,
     COMP_IS_VISIBLE = 1 << 4,
@@ -37,8 +55,7 @@ typedef enum
     COMP_COUNTER = 1 << 9,
     COMP_IS_EDIBLE = 1 << 10,
     COMP_PICKABLE = 1 << 11,
-    COMP_OWNED = 1 << 12,
-    //COMP_WIELDED = 1 << 13
+    COMP_DIRLIGHT = 1 << 12
 } Component;
 
 typedef enum
@@ -56,10 +73,11 @@ typedef enum
     KEY_WAIT = 1 << 9,
     KEY_CLIMB = 1 << 10,
     KEY_INVENTORY = 1 << 11,
-    KEY_BANDAGE = 1 << 12,
+    KEY_EXAMINE = 1 << 12,
     KEY_ORIENTEER = 1 << 13,
     KEY_CLOSEEYES = 1 << 14,
-    KEY_EXAMINE = 1 << 15
+    KEY_DROP = 1 << 15,
+    KEY_PICKUP = 1 << 16
 } Key;
 
 typedef enum
@@ -78,7 +96,10 @@ typedef enum
     ITM_BANDAGE,
     ITM_FLARE,
     ITM_CHOCOLATE,
-    ITM_ANCHOR
+    ITM_ANCHOR,
+    ITM_INSTRUMENT,
+    ITM_LIGHT,
+    ITM_BATTERY
 }ItemType;
 
 typedef enum
@@ -98,6 +119,7 @@ typedef struct
     int max;
     float count;
     CounterType type;
+    int on;
 } Counter;
 
 typedef struct
@@ -115,27 +137,25 @@ typedef struct
     ItemType type;
 } Pickable;
 
-typedef struct {
-    float x;
-    float y;
-    float z;
-} Float3;
 
 typedef struct {
-    int x;
-    int y;
-    int z;
-} PosInt;
+    int tex;
+    int tex_side;
+    char lookString[32];
+} IsVisible;
 
 typedef struct {
-    int x, y, z;
-} int3;
+    float brightness;
+    float width; // beam width, used only for dirlights. In degrees.
+    Float3 color;
+} LightSource;
 
 typedef struct {
     std::string name;
-    int hasClimbed;    
+    int hasClimbed;
+    Float3 facing;
     int injuries;
-    int mood;
+    float mood;
     float strength;
     float energy;
     float maxEnergy;
@@ -244,6 +264,16 @@ static Float3 mulFloat3(Float3 a, float c)
     return Float3{c*a.x,c*a.y,c*a.z};
 }
 
+static float dotFloat3(Float3 a, Float3 b)
+{
+    return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+static Float3 minFloat3(Float3 a, Float3 b)
+{
+    return {(float)fmin(a.x,b.x),(float)fmin(a.y,b.y),(float)fmin(a.z,b.z)};
+}
+
 
 typedef enum
 {
@@ -270,15 +300,6 @@ static Direction reverse(Direction dir)
     }
 }
 
-typedef struct {
-    int tex;
-    int tex_side;
-    char lookString[32];
-} IsVisible;
-
-typedef struct {
-    float brightness;
-} LightSource;
 
 class World
 {

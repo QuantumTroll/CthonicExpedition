@@ -22,6 +22,9 @@ class EnergySystem
     World* world;
     Character* pc;
     Game* game;
+    
+    float getMoodMods();
+    
 public:
     EnergySystem(World* w, Character* c, Game* g){world=w;pc = c;game=g;}
     void exec(float timestep);

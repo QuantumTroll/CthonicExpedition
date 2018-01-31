@@ -307,7 +307,7 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
 
 void MapCell::initTile(int x, int y, int z)
 {
-    setTileType(x,y,z,TT_ROCK1);
+    setTileType(x,y,z,TT_ICE);
     tiles[z][x][y].wasSeen = -1;
 }
 
@@ -426,7 +426,19 @@ void MapCell::genTunnel_square(PosInt start, PosInt end, int diam)
 void MapCell::genLocalCrystalCave(MCInfo info)
 {
     // everything starts out as rock
-    
+    int i,j,k;
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=0; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ROCK1);
+            }
+        }
+    }
+
+
     PosInt c = {sizexy/2,sizexy/2,sizez/2};// {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
     
     // carve out a big center
@@ -437,7 +449,6 @@ void MapCell::genLocalCrystalCave(MCInfo info)
     
     int numCrystals = irand(6,18);
     
-    int i,j;
     for(i=0; i<numCrystals; i++)
     {
         Float3 dir = normaliseFloat3({frand(-1,1),frand(-1,1),frand(-1,1)});
@@ -451,6 +462,15 @@ void MapCell::genLocalCrystalCave(MCInfo info)
         {
             setTileType(beam[j],TT_CRYSTAL);
         }
+        
+        // create a pale light source somewhere above
+        entity_t ent2 = world->createEntity();
+        world->mask[ent2] = COMP_POSITION | COMP_OMNILIGHT;
+        PosInt lPos = getGlobalPos(start);
+        printf("making light at %d %d %d\n",lPos.x,lPos.y,lPos.z);
+        world->position[ent2] =  PosInt2Float3(lPos);
+        world->light_source[ent2].brightness = frand(1,5);
+        world->light_source[ent2].color = {.2,.9,.7};
     }
     
 }
@@ -479,6 +499,17 @@ void MapCell::genLocalGlacierBottom(MCInfo info)
 {
     // everything starts out as rock
     int i,j,k;
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=0; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ROCK1);
+            }
+        }
+    }
+
     // the top half of the map is ice
     for(i=0; i<sizexy; i++)
     {
@@ -506,6 +537,15 @@ void MapCell::genLocalGlacierBottom(MCInfo info)
         }
     }
     
+    // create a pale light source somewhere above
+    entity_t ent2 = world->createEntity();
+    world->mask[ent2] = COMP_POSITION | COMP_OMNILIGHT;
+    PosInt lPos = getGlobalPos({irand(3,sizexy-3),irand(3,sizexy-3),sizez-3});
+    world->position[ent2] =  PosInt2Float3(lPos);
+    world->light_source[ent2].brightness = frand(1,5);
+    world->light_source[ent2].color = {.7,.9,1};
+    //printf("a light\n");
+    
     genStandardConnections(info);
 }
 
@@ -513,6 +553,17 @@ void MapCell::genLocalEntrance(MCInfo info)
 {
     // everything starts out as rock
     int i,j,k;
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=0; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ROCK1);
+            }
+        }
+    }
+    
     // the top half of the map is ice
     for(i=0; i<sizexy; i++)
     {
@@ -549,12 +600,21 @@ void MapCell::genLocalEntrance(MCInfo info)
     crashPos = getGlobalPos(crashPos);//
     
     entity_t ent1 = world->createEntity();
-    world->mask[ent1] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT;
+    world->mask[ent1] = COMP_POSITION | COMP_IS_VISIBLE; // | COMP_OMNILIGHT;
     world->position[ent1] =  PosInt2Float3(crashPos);
     world->is_visible[ent1].tex = 8;
     world->is_visible[ent1].tex_side = 9;
     sprintf(world->is_visible[ent1].lookString,"a broken elevator");
-    world->light_source[ent1].brightness = 2;
+   // world->light_source[ent1].brightness = 2;
+    
+    // create a pale light source somewhere above
+    entity_t ent2 = world->createEntity();
+    world->mask[ent2] = COMP_POSITION | COMP_OMNILIGHT;
+    PosInt lPos = getGlobalPos(getCeilingBelow({sizexy/2,sizexy/2,sizez-1}));
+    world->position[ent2] =  PosInt2Float3(lPos);
+    world->light_source[ent2].brightness = 5;
+    world->light_source[ent2].color = {.7,.9,1};
+    
     
     // some bits of ice lying around
     for(i=0; i < 5; i++)
@@ -567,10 +627,23 @@ void MapCell::genLocalTreasure(MCInfo info)
 {
     // everything starts out as rock
     
+    
     PosInt c = {0,0,0};// {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
     
-    // carve out a big center
+
     int i,j,k;
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=0; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ROCK1);
+            }
+        }
+    }
+    
+        // carve out a big center
     for(i=1*sizexy/5; i<4*sizexy/5; i++)
     {
         for(j=1*sizexy/5; j<4*sizexy/5; j++)
@@ -636,7 +709,7 @@ void MapCell::genVoid_sphere(PosInt center, int radius)
         radius--;
         t = sumPosInt(center,{-radius,-radius,-radius});
     }
-    printf("sphere radius %d of %d\n",radius, orad);
+   // printf("sphere radius %d of %d\n",radius, orad);
     int i,j,k;
     for(i=-radius; i<radius; i++)
     {
@@ -661,6 +734,18 @@ void MapCell::genVoid_sphere(PosInt center, int radius, int lumps)
 void MapCell::genLocalDefault(MCInfo info)
 {
     // everything starts out as rock
+    int i,j,k;
+    for(i=0; i<sizexy; i++)
+    {
+        for(j=0; j<sizexy; j++)
+        {
+            for(k=0; k<sizez; k++)
+            {
+                setTileType(i,j,k,TT_ROCK1);
+            }
+        }
+    }
+
     
     PosInt c = {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
     c = sumPosInt(c,{sizexy/2,sizexy/2,sizez/2});
@@ -676,7 +761,7 @@ void MapCell::genLocalDefault(MCInfo info)
     
     // stalagmites/tites/columns
     int numCols = irand(0,5);
-    int i,j;
+    
     for(i=0; i<numCols; i++)
     {
         PosInt p = sumPosInt(c,{irand(-r,r),irand(-r,r),0});

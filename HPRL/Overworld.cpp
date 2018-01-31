@@ -36,6 +36,8 @@ Overworld::Overworld()
     //TODO: this is where we start building the world for real
     
     // begin with subglacial streams. These are watery round tunnels that hug the interface between glacier and surface rock.
+        // tunnels down from top to surface. record where they are
+        // connect verts with horizontals. record their paths or sth
     
     // one or more subglacial streams tunnel down into the rock. These form the first "biome" that the player traverses. Rounded, twisty tunnels form pair-wise — drier upper (with pools) and wetter lower (with fish?). Occasional cavernous spaces with limestone formations. Fossils from Cenozoic to Triassic. Footprints with strange chevron shape.
     
@@ -234,6 +236,7 @@ MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
     
     if(info.type != MCT_DEFAULT) // if not default, preserve whatever is there
     {
+                        printf("%d %d %d something\n",gx,gy,gz);
         return info;
     }
     
@@ -241,19 +244,23 @@ MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
     // entrance
     if(gx == 2 && gy == 2 && gz == 28)
     {
+                        printf("%d %d %d entrance\n",gx,gy,gz);
         info.type = MCT_ENTRANCE;
         return info;
     }
     if(gz == 28)
     {
+        printf("%d %d %d glacierbottom\n",gx,gy,gz);
         info.type = MCT_GLACIERBOTTOM;
         return info;
     }
     if(gz > 28)
     {
+                printf("%d %d %d glacier\n",gx,gy,gz);
         info.type = MCT_GLACIER;
         return info;
     }
+                    printf("%d %d %d default\n",gx,gy,gz);
     
     return info;
 }
