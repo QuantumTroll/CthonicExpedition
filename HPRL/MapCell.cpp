@@ -464,15 +464,52 @@ void MapCell::genLocalCrystalCave(MCInfo info)
         }
         
         // create a pale light source somewhere above
-        entity_t ent2 = world->createEntity();
-        world->mask[ent2] = COMP_POSITION | COMP_OMNILIGHT;
+
         PosInt lPos = getGlobalPos(start);
-        printf("making light at %d %d %d\n",lPos.x,lPos.y,lPos.z);
-        world->position[ent2] =  PosInt2Float3(lPos);
-        world->light_source[ent2].brightness = frand(1,5);
-        world->light_source[ent2].color = {.2,.9,.7};
+        
+        makeLight(PosInt2Float3(lPos), frand(1,5),{.2,.9,.7});
     }
     
+}
+
+entity_t MapCell::makeSlime(Float3 pos, SlimeType type)
+{
+    entity_t slime = world->createEntity();
+    world->mask[slime] = COMP_PICKABLE | COMP_MUTATOR | COMP_IS_VISIBLE;
+    world->slime[slime] = type;
+    world->pickable[slime].type = ITM_SLIME;
+    Float3 color;
+    float brightness;
+    
+    switch(type)
+    {
+        case(SLM_LUMO):
+            brightness = 3;
+            color = {.2,1,0};
+//            sprintf("world->pickable") //TODO: continue here
+            break;
+        default: printf("slime not supported\n");
+    }
+    
+    makeLight(pos,brightness, color, slime);
+    
+    return slime;
+}
+
+entity_t MapCell::makeLight(Float3 pos, float brightness, Float3 color)
+{
+    entity_t light = world->createEntity();
+    world->mask[light] = 0;
+    return makeLight(pos, brightness, color, light);
+}
+
+entity_t MapCell::makeLight(Float3 pos, float brightness, Float3 color, entity_t light)
+{
+    world->mask[light] =  world->mask[light] | COMP_POSITION | COMP_OMNILIGHT;
+    world->position[light] =  pos;
+    world->light_source[light].brightness = brightness;
+    world->light_source[light].color = color;
+    return light;
 }
 
 void MapCell::genLocalGlacier(MCInfo info)

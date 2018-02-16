@@ -137,6 +137,7 @@ void Game::addInput(char inchar)
             case 'T': input = KEY_SOUTH; break;
             case 'Q': input = KEY_WEST; break;
             case 'S': input = KEY_EAST; break;
+            case -31: input = KEY_DOWN; break;
             case '>': input = KEY_DOWN; break;
             case '<': input = KEY_UP; break;
             case 'f': input = KEY_FLARE; break;
@@ -150,7 +151,7 @@ void Game::addInput(char inchar)
             case 'e': input = KEY_EXAMINE; break;
             case 'g': input = KEY_PICKUP; break;
             case 'd': input = KEY_DROP; break;
-            default: input = KEY_NONE; printf("char %c pressed\n",inchar);
+            default: input = KEY_NONE; printf("char %c (%d) pressed\n",inchar, (int) inchar);
         }
     }else {
         // a menu is open. send key directly to menu handler
@@ -167,7 +168,7 @@ void Game::dropMenuHandler_s(void* t, char c)
 }
 void Game::dropMenuHandler(char c)
 {
-    if(c == 'i')
+    if(c == 'x')
     {
         exitMenu();
         return;
@@ -209,60 +210,50 @@ void Game::dropItem(entity_t ent)
     addToLog(s);
     
         // make visible and give it a location etc
-    world->mask[ent] = (world->mask[ent] | COMP_CAN_MOVE | COMP_POSITION | COMP_IS_VISIBLE) ^ COMP_OWNED ; // no longer owned
+    world->mask[ent] = (world->mask[ent] | COMP_CAN_MOVE | COMP_POSITION | COMP_IS_VISIBLE) & ~ COMP_OWNED ; // no longer owned
     world->move_type[ent] = MOV_FREE;
     world->position[ent] = {world->position[player].x,world->position[player].y,world->position[player].z};
     world->velocity[ent] = {0,0,0};
 
-    if(world->pickable[ent].type & ITM_BANDAGE)
+    if(world->pickable[ent].type == ITM_BANDAGE)
     {
         sprintf(world->is_visible[ent].lookString,"Bandages");
         // placeholder
-        world->is_visible[ent].tex = 200;       //TODO: draw
-        world->is_visible[ent].tex_side = 200;
-    }else if(world->pickable[ent].type & ITM_FLARE)
-    {
-        sprintf(world->is_visible[ent].lookString,"Flares");
-        // placeholder
-        world->is_visible[ent].tex = 201;       //TODO: draw
-        world->is_visible[ent].tex_side = 201;
-    }else if(world->pickable[ent].type & ITM_CHOCOLATE)
+        world->is_visible[ent].tex = 32;       //TODO: draw
+        world->is_visible[ent].tex_side = 32;
+    }else if(world->pickable[ent].type == ITM_FLARE)
     {
         sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
         // placeholder
-        world->is_visible[ent].tex = 202;       //TODO: draw
-        world->is_visible[ent].tex_side = 202;
-    }if(world->pickable[ent].type & ITM_ANCHOR)
+        world->is_visible[ent].tex = 4;
+        world->is_visible[ent].tex_side = 4;
+    }else if(world->pickable[ent].type == ITM_CHOCOLATE)
     {
         sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
         // placeholder
-        world->is_visible[ent].tex = 203;       //TODO: draw
-        world->is_visible[ent].tex_side = 203;
-    }else if(world->pickable[ent].type & ITM_INSTRUMENT)
+        // Defined when creating the food item.
+        //world->is_visible[ent].tex = 33;
+        //world->is_visible[ent].tex_side = 33;
+    }if(world->pickable[ent].type == ITM_ANCHOR)
     {
         sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
         // placeholder
-        world->is_visible[ent].tex = 204;       //TODO: draw
-        world->is_visible[ent].tex_side = 204;
-    }else if(world->pickable[ent].type & ITM_LIGHT)
+        world->is_visible[ent].tex = 267;
+        world->is_visible[ent].tex_side = 267;
+    }else if(world->pickable[ent].type == ITM_INSTRUMENT)
     {
         sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
         // placeholder
-        world->is_visible[ent].tex = 205;       //TODO: draw
-        world->is_visible[ent].tex_side = 205;
+        world->is_visible[ent].tex = 36;
+        world->is_visible[ent].tex_side = 36;
+    }else if(world->pickable[ent].type == ITM_LIGHT)
+    {
+        sprintf(world->is_visible[ent].lookString,"%s",world->pickable[ent].name);
+        // placeholder
+        world->is_visible[ent].tex = 37;
+        world->is_visible[ent].tex_side = 37;
     }
     
-    
-        /*
-        case ITM_BANDAGE: useBandage(ent); break;
-        case ITM_FLARE: wieldFlare(ent); break;
-        case ITM_CHOCOLATE: eat(ent); break;
-        case ITM_ANCHOR: useAnchor(ent); break;
-        case ITM_INSTRUMENT: playInstrument(ent); break;
-        case ITM_LIGHT: toggleLight(ent); break;
-        default: printf("Can't drop this item yet\n");
-       // default: printf("pushed %c, got item %s\n",c,world->pickable[ent].name);
-    }*/
     return;
 }
 
@@ -272,7 +263,7 @@ void Game::inventoryMenuHandler_s(void * t,char c)
 }
 void Game::inventoryMenuHandler(char c)
 {
-    if(c == 'i')
+    if(c == 'x')
     {
         exitMenu();
         return;
@@ -763,7 +754,7 @@ float Game::toggleClimb()
 entity_t Game::createLitFlare(Float3 pos)
 {
     entity_t flare = world->createEntity();
-    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_COUNTER;
+    world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_COUNTER | COMP_PICKABLE;
     world->light_source[flare].brightness = 5.0;
     world->light_source[flare].color = {1,0,0};
     world->is_visible[flare].tex = 4;
@@ -776,6 +767,10 @@ entity_t Game::createLitFlare(Float3 pos)
     world->counter[flare].max = 25; //lasts for 25 steps
     world->counter[flare].count = world->counter[flare].max;
     world->counter[flare].on = 1;
+    sprintf(world->pickable[flare].name,"a lit flare");
+    world->pickable[flare].maxStack = 1;
+    world->pickable[flare].stack = 1;
+    world->pickable[flare].type = ITM_FLARE;
     return flare;
 }
 
@@ -788,7 +783,7 @@ float Game::wieldFlare(entity_t ent)
             world->destroyEntity(ent);
         // create a wielded omnilight
         entity_t flare = createLitFlare(world->position[player]);
-        world->mask[flare] = world->mask[flare] ^ COMP_IS_VISIBLE;
+        world->mask[flare] = (world->mask[flare] | COMP_OWNED) & ~ COMP_IS_VISIBLE;
         world->move_type[flare] = MOV_WIELDED;
         addToLog("You wield a flare");
         return 1;
@@ -880,6 +875,8 @@ void Game::getStartingFoods()
     world->mask[ent] = COMP_OWNED | COMP_PICKABLE | COMP_IS_EDIBLE;
     sprintf(world->pickable[ent].name,"Chocolate");
     world->pickable[ent].type = ITM_CHOCOLATE;
+    world->is_visible[ent].tex = 33;
+    world->is_visible[ent].tex_side = 33;
     world->pickable[ent].stack = 2;
     world->pickable[ent].maxStack = 10;
     world->edible[ent].calories = 300;
@@ -890,6 +887,8 @@ void Game::getStartingFoods()
     ent = world->createEntity();
     world->mask[ent] = COMP_OWNED | COMP_PICKABLE | COMP_IS_EDIBLE;
     sprintf(world->pickable[ent].name,"Big Tuna Sandwich");
+    world->is_visible[ent].tex = 34;
+    world->is_visible[ent].tex_side = 34;
     world->pickable[ent].type = ITM_CHOCOLATE;
     world->pickable[ent].stack = 1;
     world->pickable[ent].maxStack = 1;
@@ -901,6 +900,8 @@ void Game::getStartingFoods()
     ent = world->createEntity();
     world->mask[ent] = COMP_OWNED | COMP_PICKABLE | COMP_IS_EDIBLE;
     sprintf(world->pickable[ent].name,"Apple Juice");
+    world->is_visible[ent].tex = 35;
+    world->is_visible[ent].tex_side = 35;
     world->pickable[ent].type = ITM_CHOCOLATE;
     world->pickable[ent].stack = 1;
     world->pickable[ent].maxStack = 1;

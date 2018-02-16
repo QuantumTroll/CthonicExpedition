@@ -144,7 +144,6 @@ public:
     MapTile* getTile(PosInt p);
     MapTile* getTile(Float3 p);
     
-    
     char* getMoodDescription(float mood);
     
     std::deque<std::string> getLog() { return log; }

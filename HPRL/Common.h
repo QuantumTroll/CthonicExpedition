@@ -55,7 +55,8 @@ typedef enum
     COMP_COUNTER = 1 << 9,
     COMP_IS_EDIBLE = 1 << 10,
     COMP_PICKABLE = 1 << 11,
-    COMP_DIRLIGHT = 1 << 12
+    COMP_DIRLIGHT = 1 << 12,
+    COMP_MUTATOR = 1 << 13
 } Component;
 
 typedef enum
@@ -99,8 +100,24 @@ typedef enum
     ITM_ANCHOR,
     ITM_INSTRUMENT,
     ITM_LIGHT,
-    ITM_BATTERY
+    ITM_BATTERY,
+    ITM_SLIME
 }ItemType;
+
+typedef enum
+{
+    SLM_NIGHTSIGHT,
+    SLM_LUMO,
+    SLM_LITHOVORE,
+    SLM_METABO,
+    SLM_STAMINA,
+    SLM_STRENGTH,
+    SLM_CLAWS,
+    SLM_GECKO,
+    SLM_ROPE,
+    SLM_WATERBREATH,
+    SLM_SWIM
+} SlimeType;
 
 typedef enum
 {
@@ -315,6 +332,7 @@ public:
     Counter counter[maxEntities];
     Edible edible[maxEntities];
     Pickable pickable[maxEntities];
+    SlimeType slime[maxEntities];
     
     World();
     entity_t createEntity();
@@ -403,4 +421,5 @@ static std::vector<PosInt> getStraightPath(PosInt from, PosInt to)
 static float frand(float xmin, float xmax) { return (xmin+(xmax-xmin)*(float)random()/(float)RAND_MAX); }
 static int irand(int imin, int imax) { return random()%(imax-imin+1)+imin; }
 
+static int isnan(float x) { return x != x; };
 #endif /* Common_h */

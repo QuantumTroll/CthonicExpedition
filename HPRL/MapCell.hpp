@@ -112,6 +112,10 @@ public:
    // float wasSeen(MapTile* tile);
    // void setWasSeen(MapTile* tile, float light);
     
+    entity_t makeLight(Float3 pos, float brightness, Float3 color);
+    entity_t makeLight(Float3 pos, float brightness, Float3 color, entity_t ent);
+    entity_t makeSlime(Float3 pos, SlimeType type);
+    
     void setTileType(PosInt p, TileType tt);
     void setTileType(int x, int y, int z, TileType tt);
 
