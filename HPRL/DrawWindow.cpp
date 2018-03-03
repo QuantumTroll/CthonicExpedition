@@ -122,22 +122,6 @@ void DrawWindow::draw() {
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
         
-        // trying to get GLF to work...
-        //        glEnable(GL_DEPTH_TEST);
-     //   glDisable(GL_LINE_SMOOTH);
-     //   glDisable(GL_POINT_SMOOTH);
-     //   glEnable(GL_POLYGON_SMOOTH);
-     //   glShadeModel(GL_SMOOTH);
-     //   glDisable(GL_DITHER);
-     //   glDisable(GL_CULL_FACE);
-     /*   glEnable(GL_COLOR_MATERIAL);
-        glPixelStorei(GL_UNPACK_ALIGNMENT,1);
-        
-       // glShadeModel(GL_SMOOTH);
-        GLfloat shininess = 40;
-        GLfloat white[4] = {1,1,1,1};
-        glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
-        glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,&shininess);*/
         
         // GLF Font rendering
         /* Initialise the library */
@@ -162,9 +146,24 @@ void DrawWindow::draw() {
     glPushMatrix();
     glTranslatef(-1, -1, 0);
     
+    glPushMatrix();
+    
+    // main window offset
+    glTranslatef(0,.5,0);
+    
         //TODO: add e.g. "Z = +1" if showing z+1 from player.
     drawTiles();
     shadeMain();
+    zeroShade();
+    
+    // draw visible entities in main window
+    drawWorld();
+    
+    //TODO: this "double-shades" the ground underneath. what do?
+    shadeMainEnts();
+    
+    
+    glPopMatrix();
     
     //TODO: add e.g. "Y = +1" if showing y+1 from player, ditto for X.
     drawSidePanel();
@@ -173,6 +172,8 @@ void DrawWindow::draw() {
     zeroShade();
     
     drawBottomPanel();
+    
+    drawLabels();
     
     drawCurrentMenu();
     
@@ -271,6 +272,58 @@ void DrawWindow::shadeTile(int x, int y, Float3 tl, Float3 tr, Float3 br, Float3
 
 }
 
+void DrawWindow::drawLabels()
+{
+    std::vector<entity_t> labels;
+    
+    glPushMatrix();
+    
+    // main window offset
+    glTranslatef(0,.5,0);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    entity_t ent;
+    
+    int px = tiles_on_screen_x/2 - game->getLookAt().x ;
+    int py = tiles_on_screen_y/2 - game->getLookAt().y ;
+    
+    for(ent = 0; ent<maxEntities; ent++)
+    {
+        if(world->mask[ent] & COMP_LABEL)
+        {
+            // Entity's position
+            PosInt pos = Float32PosInt(world->position[ent]);
+            int x = pos.x;
+            int y = pos.y;
+            
+            // the tile on which to draw it // i = px-x;
+            int i = px + x;
+            int j = py + y;
+            
+            // draw label with offset if other labels already put in same spot
+            int offset = 0;
+            for(auto e = labels.begin(); e!= labels.end(); e++)
+            {
+                if( distFloat3({world->position[ent].x,world->position[ent].y,0},{world->position[*e].x,world->position[*e].y,0}) < .9 )
+                    offset ++;
+            }
+            
+            // check whether entity is on-screen.
+            if(! (i < 0 || i >= tiles_on_screen_x || j < 0 || j >= tiles_on_screen_y))
+            {
+                // draw text
+                Float3 color = world->label[ent].color;
+                //color = mulFloat3(color,world->counter[ent].count/world->counter[ent].max);
+                glColor4f(color.x,color.y,color.z,world->counter[ent].count/world->counter[ent].max);
+                print_text2(world->label[ent].text,i,j+offset);
+                labels.push_back(ent);
+            }
+        }
+    }
+    glPopMatrix();
+}
+
 
 // draw landscape "tiles" in main window
 void DrawWindow::drawTiles()
@@ -286,10 +339,6 @@ void DrawWindow::drawTiles()
     glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, 4, ts_width, ts_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &tileset[0]);
 
     
-    glPushMatrix();
-    
-    // main window offset
-    glTranslatef(0,.5,0);
     
     int i,j,k;
 #ifdef TILEMAP
@@ -349,14 +398,6 @@ void DrawWindow::drawTiles()
                             tp = sumFloat3(tp,{0,0,-0.5f});
                         
                         float q = 0.49;
-                        //  printf("tl");
-                    /*    float tl = fmin(1,game->lighting(sumFloat3(tp,{-q,q,0})));
-                        // printf("tr");
-                        float tr = fmin(1,game->lighting(sumFloat3(tp,{q,q,0})));
-                        // printf("br");
-                        float br = fmin(1,game->lighting(sumFloat3(tp,{q,-q,0})));
-                        // printf("bl");
-                        float bl = fmin(1,game->lighting(sumFloat3(tp,{-q,-q,0})));*/
                         
                         shade_main[i][j][0] = game->lighting3f(sumFloat3(tp,{-q,q,0}));
                         shade_main[i][j][1] = game->lighting3f(sumFloat3(tp,{q,q,0}));
@@ -395,10 +436,6 @@ void DrawWindow::drawTiles()
 
     #endif
     
-    // draw visible entities in main window
-    drawWorld();
-    
-    glPopMatrix();
 }
 
 void DrawWindow::drawWorld()
@@ -457,13 +494,19 @@ void DrawWindow::drawWorld()
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                     
                     float q = 0.49;
-
+                    shade_main[i][j][0] = maxFloat3(shade_main[i][j][0],game->lighting3f(sumFloat3(tp,{-q,q,0})));
+                    shade_main[i][j][1] = maxFloat3(shade_main[i][j][1],game->lighting3f(sumFloat3(tp,{q,q,0})));
+                    shade_main[i][j][2] = maxFloat3(shade_main[i][j][2],game->lighting3f(sumFloat3(tp,{q,-q,0})));
+                    shade_main[i][j][3] = maxFloat3(shade_main[i][j][3],game->lighting3f(sumFloat3(tp,{-q,-q,0})));
+                    
+                    entShades.push_back({i,j,0});
+                    
                     // draw the entity
                     int tex = world->is_visible[ent].tex;
                     drawTile(i,j,tex);//,tl,tr,br,bl);
-                    
+                    //drawTileShade(i,j,tex,stl,str,sbr,sbl);
                     //TODO: don't draw lower-z ents over higher-z ents
-                    //TODO: check light level and shade if necessary
+                    
                 }
             }
         }
@@ -472,10 +515,6 @@ void DrawWindow::drawWorld()
 
 void DrawWindow::shadeMain()
 {
-    glPushMatrix();
-    
-    // main window offset
-    glTranslatef(0,.5,0);
     
     int i,j;
     
@@ -489,8 +528,18 @@ void DrawWindow::shadeMain()
             //drawTile(i,j,t);
         }
     }
-    glPopMatrix();
-    
+}
+
+void DrawWindow::shadeMainEnts()
+{
+    int i, j;
+    for(auto p=entShades.begin(); p!=entShades.end(); p++)
+    {
+        i=p->x;
+        j=p->y;
+        shadeTile(i,j,shade_main[i][j][0],shade_main[i][j][1],shade_main[i][j][2],shade_main[i][j][3]);
+    }
+    entShades.clear();
 }
 
 void DrawWindow::zeroShade()
@@ -615,6 +664,12 @@ void DrawWindow::drawWorldX()
                     
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                     
+                    float q = 0.49;
+                    shade_side[i][j][0] = maxFloat3(shade_side[i][j][0], game->lighting3f(sumFloat3(tp,{-q,0,q})));
+                    shade_side[i][j][1] = maxFloat3(shade_side[i][j][1],game->lighting3f(sumFloat3(tp,{q,0,q})));
+                    shade_side[i][j][2] = maxFloat3(shade_side[i][j][2],game->lighting3f(sumFloat3(tp,{q,0,-q})));
+                    shade_side[i][j][3] = maxFloat3(shade_side[i][j][3],game->lighting3f(sumFloat3(tp,{-q,0,-q})));
+                    
                     // draw the entity
                     int tex = world->is_visible[ent].tex_side;
                     drawTile(i+xOffset,j+yOffset,tex);//,tl,tr,br,bl);
@@ -716,7 +771,7 @@ void DrawWindow::drawWorldY()
     int pz = (int)tilesWide*2/3 - game->getLookAt().z;
     int px = game->getLookAt().x;
     int py = tilesWide/2 - game->getLookAt().y;
-    
+    int shadeOffset = sidePanelX_y;
     // find ents with the right components
     entity_t ent;
     
@@ -753,14 +808,19 @@ void DrawWindow::drawWorldY()
                     
                     float q = 0.49;
                     //  printf("tl");
-                    float tl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,q})));
+                   /* float tl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,q})));
                     // printf("tr");
                     float tr = fmin(1,game->lighting(sumFloat3(tp,{0,q,q})));
                     // printf("br");
                     float br = fmin(1,game->lighting(sumFloat3(tp,{0,q,-q})));
                     // printf("bl");
                     float bl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,-q})));
+                    */
                     
+                    shade_side[i][j+shadeOffset][0] = maxFloat3(shade_side[i][j+shadeOffset][0], game->lighting3f(sumFloat3(tp,{0,-q,q})));
+                    shade_side[i][j+shadeOffset][1] = maxFloat3(shade_side[i][j+shadeOffset][1],game->lighting3f(sumFloat3(tp,{0,q,q})));
+                    shade_side[i][j+shadeOffset][2] = maxFloat3(shade_side[i][j+shadeOffset][2],game->lighting3f(sumFloat3(tp,{0,q,-q})));
+                    shade_side[i][j+shadeOffset][3] = maxFloat3(shade_side[i][j+shadeOffset][3],game->lighting3f(sumFloat3(tp,{0,-q,-q})));
                     // draw the entity
                     int tex = world->is_visible[ent].tex_side;
                     drawTile(i+xOffset,j+yOffset,tex);//,tl,tr,br,bl);
@@ -878,6 +938,7 @@ void DrawWindow::drawBottomPanel()
     // TODO: let player toggle longer log with a button press
     log = game->getLog();
     int numEntries = 5;
+    glColor3f(.575,.79,.68);
     for(i=log.size()-1; i >= 0 && i > (int)log.size()-numEntries; i--)
     {
         int pos = log.size() - i;
@@ -898,11 +959,6 @@ void DrawWindow::drawBottomPanel()
     j = 2;
     sprintf(s,"Recover: %d/turn",(int)(pc->recover-pc->bleed));
     print_text2(s,i,j);
-    if(pc->bleed > 0)
-    {
-        sprintf(s,"Bleeding");
-        print_text2(s,i,j+1);
-    }
     
     j = 1;
     sprintf(s,"Mood: %s",game->getMoodDescription(pc->mood));
@@ -991,6 +1047,7 @@ void DrawWindow::drawMenu(int x1, int y1, int x2, int y2, int numOptions, MenuOp
 }
 void DrawWindow::drawCurrentMenu()
 {
+    glColor3f(.575,.79,.68);
     Menu* menu = game->getCurrentMenu();
     if(menu)
     {
@@ -1009,8 +1066,8 @@ void DrawWindow::print_text(const char* str, float x, float y)
     glDisable(GL_TEXTURE_2D);
     glDisable (GL_TEXTURE_RECTANGLE_ARB);
     glDisable(GL_LIGHTING);
-    glDisable(GL_BLEND);
-    glColor3f(.575,.79,.68);
+   // glDisable(GL_BLEND);
+    //glColor3f(.575,.79,.68);
 #ifdef GLUTBMP
     glRasterPos3f(x, y,1);
     print_text(str);

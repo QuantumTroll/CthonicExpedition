@@ -455,7 +455,7 @@ void Movement::exec(float timestep)
         if(w->mask[ent] & mask && w->move_type[ent] & MOV_WIELDED)
         {
             w->position[ent] = w->position[game->getPlayerEntity()];
-            printf("setting postion of %d to player position\n", ent);
+           // printf("setting postion of %d to player position\n", ent);
         }
     }
 }

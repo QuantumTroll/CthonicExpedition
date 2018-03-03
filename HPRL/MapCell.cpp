@@ -475,18 +475,31 @@ void MapCell::genLocalCrystalCave(MCInfo info)
 entity_t MapCell::makeSlime(Float3 pos, SlimeType type)
 {
     entity_t slime = world->createEntity();
-    world->mask[slime] = COMP_PICKABLE | COMP_MUTATOR | COMP_IS_VISIBLE;
+   // printf("slime %d\n",slime);
+    world->mask[slime] = COMP_PICKABLE | COMP_MUTATOR | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_IS_EDIBLE;
     world->slime[slime] = type;
     world->pickable[slime].type = ITM_SLIME;
-    Float3 color;
-    float brightness;
+    world->pickable[slime].maxStack = 1;
+    world->pickable[slime].stack = 1;
+    world->edible[slime].calories = 1000;
+    world->edible[slime].moodMod = -20;
+    world->edible[slime].quench = -.3;
+    world->position[slime] = {pos.x,pos.y,pos.z};
+    world->velocity[slime] = {0,0,0};
+    world->move_type[slime] = MOV_FREE;
+    Float3 color = {1,1,1};
+    float brightness = 1;
     
     switch(type)
     {
         case(SLM_LUMO):
-            brightness = 3;
-            color = {.2,1,0};
+            brightness = 1;
+            color = {frand(0,.6),frand(0,.6),frand(0,.6)};
 //            sprintf("world->pickable") //TODO: continue here
+            sprintf(world->pickable[slime].name,"luminous slime");
+            sprintf(world->is_visible[slime].lookString,"luminous slime");
+            world->is_visible[slime].tex = 38;
+            world->is_visible[slime].tex_side = 38;
             break;
         default: printf("slime not supported\n");
     }
@@ -647,7 +660,7 @@ void MapCell::genLocalEntrance(MCInfo info)
     // create a pale light source somewhere above
     entity_t ent2 = world->createEntity();
     world->mask[ent2] = COMP_POSITION | COMP_OMNILIGHT;
-    PosInt lPos = getGlobalPos(getCeilingBelow({sizexy/2,sizexy/2,sizez-1}));
+    PosInt lPos = getGlobalPos(getCeilingBelow({sizexy/2,sizexy/2,sizez-2}));
     world->position[ent2] =  PosInt2Float3(lPos);
     world->light_source[ent2].brightness = 5;
     world->light_source[ent2].color = {.7,.9,1};
@@ -657,6 +670,17 @@ void MapCell::genLocalEntrance(MCInfo info)
     for(i=0; i < 5; i++)
     {
         setTileType(getFloorAbove({irand(2*sizexy/5,3*sizexy/5),irand(2*sizexy/5,3*sizexy/5),0}), TT_ICE);
+    }
+    
+    // some glowing slimes lying about
+    for(i=0; i < 5; i++)
+    {
+        PosInt p = getFloorAbove({irand(2*sizexy/5,3*sizexy/5),irand(2*sizexy/5,3*sizexy/5),0});
+        while (p.x < 0)
+        {
+             p = getFloorAbove({irand(2*sizexy/5,3*sizexy/5),irand(2*sizexy/5,3*sizexy/5),0});
+        }
+        makeSlime(PosInt2Float3(getGlobalPos(p)),SLM_LUMO);
     }
 }
 

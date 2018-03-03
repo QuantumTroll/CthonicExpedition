@@ -33,6 +33,7 @@ class DrawWindow : public Fl_Gl_Window {
     
     void draw();
     int handle(int);
+    void drawLabels();
     void drawTiles();
     void drawTile(int x, int y, int tex);
     void drawTile(int x, int y, int tex, float size, int ramp, int depth);
@@ -53,10 +54,13 @@ class DrawWindow : public Fl_Gl_Window {
     Float3 *** shade_main;
     Float3 *** shade_side;
     
+    std::vector<PosInt> entShades;
+    
     void zeroShade();
     
     void drawWorld();
     void shadeMain();
+    void shadeMainEnts();
     void drawSidePanel();
     void shadeSidePanel();
     void drawBottomPanel();

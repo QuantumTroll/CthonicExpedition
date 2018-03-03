@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2C16318E1FDC8781000E8B69 /* glf.c in Sources */ = {isa = PBXBuildFile; fileRef = 2C16318C1FDC8781000E8B69 /* glf.c */; };
+		2C1D122D20400B3300C484E8 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 2C1D122B20400B3200C484E8 /* timer.c */; };
 		2C38C6D41FB6F36300A04517 /* Energy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C38C6D21FB6F36200A04517 /* Energy.cpp */; };
 		2C51BFC71FC3056C00589B91 /* Overworld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C51BFC51FC3056C00589B91 /* Overworld.cpp */; };
 		2C9E17C61F84EF5600DDDBE7 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C9E17C51F84EF5600DDDBE7 /* main.cpp */; };
@@ -36,6 +37,8 @@
 		2C1631941FE45040000E8B69 /* tileset1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = tileset1.png; path = HPRL/art/tileset1.png; sourceTree = SOURCE_ROOT; };
 		2C1631961FFF9FDA000E8B69 /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fonts; path = HPRL/fonts; sourceTree = "<group>"; };
 		2C1631971FFF9FEC000E8B69 /* art */ = {isa = PBXFileReference; lastKnownFileType = folder; name = art; path = HPRL/art; sourceTree = "<group>"; };
+		2C1D122B20400B3200C484E8 /* timer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timer.c; sourceTree = "<group>"; };
+		2C1D122C20400B3200C484E8 /* timer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = timer.h; sourceTree = "<group>"; };
 		2C38C6D21FB6F36200A04517 /* Energy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Energy.cpp; sourceTree = "<group>"; };
 		2C38C6D31FB6F36200A04517 /* Energy.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Energy.hpp; sourceTree = "<group>"; };
 		2C51BFC51FC3056C00589B91 /* Overworld.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Overworld.cpp; sourceTree = "<group>"; };
@@ -91,6 +94,8 @@
 		2C9E17C41F84EF5600DDDBE7 /* HPRL */ = {
 			isa = PBXGroup;
 			children = (
+				2C1D122B20400B3200C484E8 /* timer.c */,
+				2C1D122C20400B3200C484E8 /* timer.h */,
 				2C9E17D41F8D18F900DDDBE7 /* Movement.cpp */,
 				2C9E17D51F8D18F900DDDBE7 /* Movement.hpp */,
 				2C9E17C51F84EF5600DDDBE7 /* main.cpp */,
@@ -175,6 +180,7 @@
 				2C9E17D11F8BE97800DDDBE7 /* lodepng.cpp in Sources */,
 				2C9E17DE1F90F93E00DDDBE7 /* MapCell.cpp in Sources */,
 				2C9E17C61F84EF5600DDDBE7 /* main.cpp in Sources */,
+				2C1D122D20400B3300C484E8 /* timer.c in Sources */,
 				2C9E17CE1F84F3C300DDDBE7 /* DrawWindow.cpp in Sources */,
 				2C9E17DB1F8E3A9B00DDDBE7 /* Game.cpp in Sources */,
 			);

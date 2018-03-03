@@ -14,6 +14,7 @@
 #include "DrawWindow.hpp"
 #include "Common.h"
 #include "Game.hpp"
+#include "timer.h"
 
 int main(int argc, const char * argv[]) {
     // insert code here...
@@ -40,14 +41,48 @@ int main(int argc, const char * argv[]) {
     myWin->mode(FL_RGB | FL_ALPHA | FL_DEPTH | FL_ACCUM);
     myWin->show();
     
+    timeType t0, t1;
     // start event loop
     while(true)
     {
-        Fl::wait();
+        t0 = timer();
+        Fl::wait(.1);
+        t1 = timer();
         //theGame->addToLog("doing systems");
-        theGame->doSystems();
+        // TODO: get delta t for this frame...
+        theGame->doSystems(t1-t0);
         myWin->redraw();
     }
     
     return 0;
+}
+
+/*
+ * Function: Timer
+ * Usage: printf("Time = %f\n",Timer()-t0);
+ * ----------------------------------------
+ * Returns the time in seconds and uses the timer
+ * defined in timer.h.
+ *
+ */
+timeType timer(void) {
+#ifdef CLOCK
+    return (timeType)clock()/(timeType)CLOCKS_PER_SEC;
+#endif
+    
+#ifdef TIMES
+    return (timeType)times(&tms_time)/(timeType)sysconf(_SC_CLK_TCK);
+#endif
+    
+#ifdef GETRUSAGE
+    struct rusage rusage0;
+    getrusage(RUSAGE_SELF,&rusage0);
+    return evaltime(rusage0);
+#endif
+    
+#ifdef GETTIMEOFDAY
+    struct timeval timeval_time;
+    gettimeofday(&timeval_time,NULL);
+    return evaltime(timeval_time);
+#endif
 }

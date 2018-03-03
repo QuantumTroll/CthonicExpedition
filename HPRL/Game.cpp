@@ -72,10 +72,12 @@ void Game::init()
     pc.healing = 0.01;
     pc.hunger = .10;
     pc.thirst = .10;
+    pc.hungerLevel = getHungerLevel(pc.hunger);
+    pc.thirstLevel = getThirstLevel(pc.thirst);
 
 // create a player entity
     player = world->createEntity();
-    world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION | COMP_OMNILIGHT;
+    world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION;
   //  world->is_player_controlled[player].is_player_controlled = 1;
   //  world->is_visible[player].is_visible = 1;
     world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5-2)};
@@ -84,8 +86,8 @@ void Game::init()
     world->is_visible[player].tex_side = 266; // some thing
     sprintf(world->is_visible[player].lookString,"yourself, %s",pc.name.c_str());
     world->move_type[player] = MOV_FREE; // default movement mode
-    world->light_source[player].brightness = 1.5; // reduce when not debugging
-    world->light_source[player].color = {1,.9,.8};
+    world->light_source[player].brightness = 0; // reduce when not debugging
+    world->light_source[player].color = {1,1,1};
     lookAt = Float32PosInt( world->position[player]);
     
     // add starting gear to inventory
@@ -252,6 +254,9 @@ void Game::dropItem(entity_t ent)
         // placeholder
         world->is_visible[ent].tex = 37;
         world->is_visible[ent].tex_side = 37;
+    }else
+    {
+        printf("dropping default item\n");
     }
     
     return;
@@ -282,6 +287,8 @@ void Game::inventoryMenuHandler(char c)
         case ITM_ANCHOR: useAnchor(ent); break;
         case ITM_INSTRUMENT: playInstrument(ent); break;
         case ITM_LIGHT: toggleLight(ent); break;
+        case ITM_SLIME: eatSlime(ent); break;
+        case ITM_BOTTLE: useBottle(ent); break;
         default: printf("pushed %c, got item %s\n",c,world->pickable[ent].name);
     }
     exitMenu();
@@ -323,7 +330,23 @@ void Game::displayInventory(int action) // 0 for use, 1 for drop, ...
     currentMenu->numOptions = numItems;
 }
 
+void Game::addLabel(const char* str, float time, Float3 color)
+{
+    addLabel(str,world->position[player].x,world->position[player].y,time,color);
+}
 
+void Game::addLabel(const char* str, int x, int y, float time, Float3 color)
+{
+    entity_t label = world->createEntity();
+    world->mask[label] = COMP_LABEL | COMP_POSITION | COMP_COUNTER;
+    world->label[label].color = color;
+    sprintf(world->label[label].text, str);
+    world->position[label] = {(float)x,(float)y,0};
+    world->counter[label].on = 1;
+    world->counter[label].count = time;
+    world->counter[label].max = time;
+    world->counter[label].type = CNT_FLARE;
+}
 
 void Game::addToLog(std::string str)
 {
@@ -339,8 +362,9 @@ void Game::addToLog(std::string str)
     
     log.push_back(entry);
 }
-void Game::doSystems()
+void Game::doSystems(float dt)
 {
+    updateLabels(dt);
     if(! isOn)
         return;
     Key input;
@@ -410,7 +434,7 @@ void Game::doSystems()
     movement->exec(timeStep);
     heal(timeStep);
     updateCounters(timeStep);
-    time += timeStep;
+    time += timeStep;    
     
     //TODO: check if movement brought player in range of cell edge. if so, offload old and load new cells.
 //    cellCoords
@@ -603,6 +627,31 @@ void Game::doSystems()
     turnOff();
 }
 
+int Game::getHungerLevel(float hunger)
+{
+    if(hunger < 0.125)
+        return 3;
+    else if(hunger < 0.5)
+        return 2;
+    else if(hunger < 1)
+        return 1;
+    else
+        return 0;
+    
+}
+int Game::getThirstLevel(float thirst)
+{
+    printf("get thirst level %f\n",thirst);
+    if(thirst < 0.125)
+        return 3;
+    else if(thirst < 0.5)
+        return 2;
+    else if(thirst < 0.75)
+        return 1;
+    else
+        return 0;
+}
+
 void Game::lookReport()
 {
     char s[100];
@@ -629,6 +678,16 @@ void Game::lookReport()
                 sprintf(s,"You are bleeding to death.");
             addToLog(s);
         }
+        
+        switch(pc.hungerLevel)
+        {
+            case 3: sprintf(s,"Your stomach is content. %f",pc.hunger); break;
+            case 2: sprintf(s,"You feel like you could eat. %f",pc.hunger); break;
+            case 1: sprintf(s,"You are hungry. %f",pc.hunger); break;
+            case 0: sprintf(s,"You are starving. %f",pc.hunger); break;
+            default: sprintf(s,"Your stomach feels wrong.");
+        }
+        /*
         if(pc.hunger < 0.125)
             sprintf(s,"Your stomach is content. %f",pc.hunger);
         else if(pc.hunger < 0.5)
@@ -636,9 +695,17 @@ void Game::lookReport()
         else if(pc.hunger < 1)
             sprintf(s,"You are hungry. %f",pc.hunger);
         else
-            sprintf(s,"You are starving. %f",pc.hunger);
+            sprintf(s,"You are starving. %f",pc.hunger);*/
         addToLog(s);
         
+        switch(pc.thirstLevel)
+        {
+            case 3: sprintf(s,"You feel hydrated. %f",pc.thirst); break;
+            case 2: sprintf(s,"You feel a little thirsty. %f",pc.thirst); break;
+            case 1: sprintf(s,"You are thirsty. %f",pc.thirst); break;
+            case 0: sprintf(s,"You are parched. %f",pc.thirst); break;
+            default: sprintf(s,"Your throat feels wrong.");
+        }/*
         if(pc.thirst < 0.125)
             sprintf(s,"You feel hydrated. %f",pc.thirst);
         else if(pc.thirst < 0.5)
@@ -646,7 +713,7 @@ void Game::lookReport()
         else if(pc.thirst < 0.75)
             sprintf(s,"You are thirsty. %f",pc.thirst);
         else
-            sprintf(s,"You are parched. %f",pc.thirst);
+            sprintf(s,"You are parched. %f",pc.thirst);*/
         addToLog(s);
         
     }else     // check what's in lookAt, do addToLog with look strings for tile, entities.
@@ -756,7 +823,7 @@ entity_t Game::createLitFlare(Float3 pos)
     entity_t flare = world->createEntity();
     world->mask[flare] = COMP_POSITION | COMP_IS_VISIBLE | COMP_OMNILIGHT | COMP_CAN_MOVE | COMP_COUNTER | COMP_PICKABLE;
     world->light_source[flare].brightness = 5.0;
-    world->light_source[flare].color = {1,0,0};
+    world->light_source[flare].color = {1,1,1};
     world->is_visible[flare].tex = 4;
     world->is_visible[flare].tex_side = 4;
     sprintf(world->is_visible[flare].lookString,"a lit flare");
@@ -882,6 +949,7 @@ void Game::getStartingFoods()
     world->edible[ent].calories = 300;
     world->edible[ent].moodMod = 45;
     world->edible[ent].quench = -.05;
+    world->edible[ent].bottle = 0;
 
     // One big sandwich
     ent = world->createEntity();
@@ -895,6 +963,7 @@ void Game::getStartingFoods()
     world->edible[ent].calories = 1200;
     world->edible[ent].moodMod = 30;
     world->edible[ent].quench = -.1;
+    world->edible[ent].bottle = 0;
     
     // Bottle of apple juice
     ent = world->createEntity();
@@ -908,6 +977,7 @@ void Game::getStartingFoods()
     world->edible[ent].calories = 50;
     world->edible[ent].moodMod = 20;
     world->edible[ent].quench = 2;
+    world->edible[ent].bottle = 1;
 }
 void Game::getFlares(int num)
 {
@@ -997,18 +1067,68 @@ float Game::useBandage(entity_t bandage)
 
 float Game::eat(entity_t food)
 {
+    // decide how much of the food you're gonna eat. Man, how?
+    // maybe don't eat unless hungry/thirsty
+    if(world->edible[food].calories > 0 && pc.hungerLevel == 3 && world->edible[food].quench <= 0)
+    {
+        addToLog("You're not hungry.");
+        return 0;
+    }
+    if(world->edible[food].quench > 0 && pc.thirstLevel == 3)
+    {
+        addToLog("You're not thirsty.");
+        return 0;
+    }
+    
     char s[32];
     sprintf(s,"You consume the %s", world->pickable[food].name);
     addToLog(s);
+    
     pc.hunger -= (world->edible[food].calories/2400.0f);
     pc.mood += (world->edible[food].moodMod);
     pc.thirst -= world->edible[food].quench;
     world->pickable[food].stack --;
     if(world->pickable[food].stack < 1)
-        world->destroyEntity(food);
+    {
+        if(world->edible[food].bottle > 0)
+        {
+            //TODO: make entity into empty bottle
+            world->mask[food] = COMP_OWNED | COMP_PICKABLE;
+            world->pickable[food].type = ITM_BOTTLE;
+            sprintf(world->is_visible[food].lookString,"empty bottle");
+            sprintf(world->pickable[food].name,"empty bottle");
+            world->is_visible[food].tex = 39;
+            world->is_visible[food].tex_side = 39;
+        }else
+            world->destroyEntity(food);
+    }
     return 1;
 }
 
+float Game::eatSlime(entity_t slime)
+{
+    float t = eat(slime);
+    if(t > 0)
+        switch(world->slime[slime])
+        {
+            case SLM_LUMO:
+                world->mask[player] = world->mask[player] | COMP_OMNILIGHT;
+                world->light_source[player].brightness += world->light_source[slime].brightness;
+                world->light_source[player].color = world->light_source[slime].color;
+                addToLog("Your skin glows.");
+                break;
+            default:
+                printf("ate an unimplemented slime\n");
+        }
+    return t;
+}
+
+float Game::useBottle(entity_t bottle)
+{
+    addToLog("You try to use the bottle");
+    return 1;
+}
+    
 float Game::useAnchor(entity_t anchor)
 {
     // TODO: if next to solid
@@ -1143,10 +1263,35 @@ void Game::collision(entity_t ent, float dV)
             }else if( damage < 2.5 && pc.bruise + damage < pc.maxEnergy) //TODO: relate this "2.5" to "skin toughness"
             {
                 pc.bruise += damage*5;
+                addLabel("Bruise",2,{1,.5,0});
                 addToLog("You land badly and knock the wind out of you");
             }else{
                 addToLog("You get a bad scrape");
+                addLabel("Cut",2,{1,0,0});
                 pc.bleed += damage*3;
+            }
+        }
+    }
+}
+
+//TODO: call this on a window draw event, not on game update loop
+void Game::updateLabels(float timeStep)
+{
+   // printf("updatelabel %f\n",timeStep);
+    entity_t ent;
+    
+    for(ent = 0; ent<maxEntities; ent++)
+    {
+        if(world->mask[ent] & COMP_LABEL)
+        {
+            if(world->counter[ent].on > 0)
+            {
+               // printf("updatelabel %f - %f\n",world->counter[ent].count, timeStep);
+                world->counter[ent].count -= timeStep;
+                if(world->counter[ent].count <= 0) // counter runs out!
+                {
+                    world->destroyEntity(ent);
+                }
             }
         }
     }
@@ -1160,6 +1305,8 @@ void Game::updateCounters(float timeStep)
     {
         if(world->mask[ent] & COMP_COUNTER)
         {
+            if(world->mask[ent] & COMP_LABEL)
+                continue;
             if(world->counter[ent].on > 0)
             {
                 world->counter[ent].count -= timeStep;
@@ -1178,7 +1325,7 @@ void Game::updateCounters(float timeStep)
 
 void Game::heal(float timeStep)
 {
-    float h = fmax(0,pc.healing*timeStep*(1-pc.hunger));
+    float h = fmax(0,pc.healing*timeStep*(1-fmin(1,pc.hunger)));
     float amtHealed = 0;
     // if you're bleeding, there's a chance to heal the bleeding. This is shown by th emission of a spot of blood.
     if(pc.bleed > 0 && frand(0,10) < pc.bleed)
@@ -1213,32 +1360,45 @@ char* Game::getMoodDescription(float mood)
     if(mood < 0)
     {
         sprintf(m,"Despairing");
+        pc.moodLevel = 0;
     }else if(mood < 10)
     {
         sprintf(m,"Despondent");
+        pc.moodLevel = 1;
     }else if(mood < 25)
     {
         sprintf(m,"Miserable");
+        pc.moodLevel = 2;
     }else if(mood < 40)
     {
         sprintf(m,"Unhappy");
+        pc.moodLevel = 3;
     }else if(mood < 60)
     {
         sprintf(m,"Managing");
+        pc.moodLevel = 4;
     }else if(mood < 85)
     {
         sprintf(m,"Ok");
+        pc.moodLevel = 5;
     }else if(mood < 100)
     {
         sprintf(m,"Focused");
+        pc.moodLevel = 6;
     }else if(mood < 120)
     {
         sprintf(m,"Determined");
+        pc.moodLevel = 7;
     }else if(mood < 200)
     {
+        pc.moodLevel = 8;
         sprintf(m,"Thriving");
     }else
+    {
+        pc.moodLevel = 9;
         sprintf(m,"Euphoric");
+    }
+    
     return m;
 }
 
@@ -1516,7 +1676,7 @@ MapCell * Game::getCellatCoords(int x, int y, int z)
     
     if(cx < 0 || cx > 2 || cy < 0 || cy > 2 || cz < 0 || cz > 2)
     {
-        fprintf(stderr,"asking for invalid cell in getCellatCoords(%d %d %d),cellCoords=%d %d %d",x,y,z,cellCoords.x,cellCoords.y,cellCoords.z);
+        fprintf(stderr,"asking for invalid cell %d %d %d in getCellatCoords(%d %d %d),cellCoords=%d %d %d",cx,cy,cz,x,y,z,cellCoords.x,cellCoords.y,cellCoords.z);
         return NULL;
     }
     //printf("getCellCoords %d %d %d got cell %d %d %d\n",x,y,z,cc.x,cc.y,cc.z);

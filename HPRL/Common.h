@@ -56,7 +56,8 @@ typedef enum
     COMP_IS_EDIBLE = 1 << 10,
     COMP_PICKABLE = 1 << 11,
     COMP_DIRLIGHT = 1 << 12,
-    COMP_MUTATOR = 1 << 13
+    COMP_MUTATOR = 1 << 13,
+    COMP_LABEL = 1 << 14
 } Component;
 
 typedef enum
@@ -101,7 +102,8 @@ typedef enum
     ITM_INSTRUMENT,
     ITM_LIGHT,
     ITM_BATTERY,
-    ITM_SLIME
+    ITM_SLIME,
+    ITM_BOTTLE
 }ItemType;
 
 typedef enum
@@ -144,6 +146,7 @@ typedef struct
     float calories;
     float moodMod;
     float quench;
+    float bottle;
 } Edible;
 
 typedef struct
@@ -173,8 +176,10 @@ typedef struct {
     Float3 facing;
     int injuries;
     float mood;
+    int moodLevel;
     float strength;
     float energy;
+    int energyLevel;
     float maxEnergy;
     float recover;
     float bleed;
@@ -182,7 +187,9 @@ typedef struct {
     float armour;
     float healing;
     float hunger;
+    int hungerLevel;
     float thirst;
+    int thirstLevel;
 } Character;
 
 typedef struct {
@@ -199,6 +206,10 @@ typedef struct {
     void (*menuHandler)(void*,char);
 }Menu;
 
+typedef struct {
+    char text[32];
+    Float3 color;
+}Label;
 
 static PosInt sumPosInt(PosInt a, PosInt b)
 {
@@ -291,6 +302,11 @@ static Float3 minFloat3(Float3 a, Float3 b)
     return {(float)fmin(a.x,b.x),(float)fmin(a.y,b.y),(float)fmin(a.z,b.z)};
 }
 
+static Float3 maxFloat3(Float3 a, Float3 b)
+{
+    return {(float)fmax(a.x,b.x),(float)fmax(a.y,b.y),(float)fmax(a.z,b.z)};
+}
+
 
 typedef enum
 {
@@ -333,6 +349,7 @@ public:
     Edible edible[maxEntities];
     Pickable pickable[maxEntities];
     SlimeType slime[maxEntities];
+    Label label[maxEntities];
     
     World();
     entity_t createEntity();
@@ -421,5 +438,5 @@ static std::vector<PosInt> getStraightPath(PosInt from, PosInt to)
 static float frand(float xmin, float xmax) { return (xmin+(xmax-xmin)*(float)random()/(float)RAND_MAX); }
 static int irand(int imin, int imax) { return random()%(imax-imin+1)+imin; }
 
-static int isnan(float x) { return x != x; };
+//static int isnan(float x) { return x != x; };
 #endif /* Common_h */

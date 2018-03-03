@@ -110,16 +110,60 @@ void EnergySystem::exec(float timestep)
         // MOV_FREE implies jump or fall. Pretty stressful, I'd say, no recovery.
         moveCost = pc->recover;
     }
-    moveCost += moveCost*(pc->thirst*pc->thirst); // being thirsty makes you tired faster.
+    moveCost += moveCost*(fmax(0,pc->thirst)*fmax(0,pc->thirst)); // being thirsty makes you tired faster.
     pc->energy -= moveCost*timestep;
     
+    if(pc->energy < 0)
+        game->addLabel("Exhausted!",1,{1,1,1});
+    else if(pc->energy+pc->recover < moveCost)
+        game->addLabel("Strained!",1,{1,1,1});
+    else if(pc->energy+pc->recover < 2*moveCost )
+        game->addLabel("Tired",1,{1,1,1});
+    
     pc->hunger += moveCost*timestep / (100*500.0); // we're consuming calories here. Have 100 energy. How many full recoveries before you're starving? 1000 of them?
+    int hL = game->getHungerLevel(pc->hunger);
+    if(hL != pc->hungerLevel)
+    {
+        pc->hungerLevel = hL;
+        char s[32];
+        switch(hL)
+        {
+            case 0: sprintf(s,"Starving!"); break;
+            case 1: sprintf(s,"Hungry"); break;
+            case 2: sprintf(s,"Peckish"); break;
+            case 3: sprintf(s,"Sated"); break;
+            default: sprintf(s,"??");
+        }
+        game->addLabel(s,3,{1,.8,.8});
+    }
     pc->thirst += timestep*pc->bleed / 1000.0; // thirst just slowly grows with time. Much faster while you bleed.
+    
+    int tL = game->getThirstLevel(pc->thirst);
+    if(tL != pc->thirstLevel)
+    {
+        pc->thirstLevel = tL;
+        char s[32];
+        switch(tL)
+        {
+            case 0: sprintf(s,"Parched!"); break;
+            case 1: sprintf(s,"Thirsty"); break;
+            case 2: sprintf(s,"Less hydrated"); break;
+            case 3: sprintf(s,"Hydrated"); break;
+            default: sprintf(s,"??");
+        }
+        game->addLabel(s,3,{.8,.8,1});
+    }
     
     // mood evolution varies depending on many factors
     float mm = getMoodMods();
     pc->mood += timestep*mm;
-    
+    int mL = pc->moodLevel;
+    //pc->moodLevel
+    game->getMoodDescription(pc->mood);
+    if(mL != pc->moodLevel)
+    {
+        //game->addLabel(game->getMoodDescription(pc->mood),2,{1,1,1});
+    }
     printf("mood %f\n",pc->mood);
 }
 
@@ -153,11 +197,11 @@ float EnergySystem::getMoodMods()
     printf("mood %f torn clothes\n",- 0.1*(3-pc->armour));
     
     // hunger is depressing. Hunger is in [0, 1...), 0 not hungry
-    mm -= pc->hunger*pc->hunger;
+    mm -= fmax(0,pc->hunger)*fmax(0,pc->hunger);
     printf("mood %f hunger\n",-pc->hunger*pc->hunger);
     
     // thirst is distressing. Thirst is in same range as hunger.
-    mm -= pc->thirst*pc->thirst;
+    mm -= fmax(0,pc->thirst)*fmax(0,pc->thirst);
     printf("mood %f thirst\n",-pc->thirst*pc->thirst);
     
     // bruising hurts. Can be from 0 to 100

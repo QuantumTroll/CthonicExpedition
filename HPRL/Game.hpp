@@ -101,9 +101,11 @@ private:
     float useBandage(entity_t bandage);
     float useBandage();
     float eat(entity_t food);
+    float eatSlime(entity_t slime);
     float useAnchor(entity_t anchor);
     float playInstrument(entity_t inst);
     float toggleLight(entity_t light);
+    float useBottle(entity_t bottle);
     
     int isOn;
 
@@ -116,7 +118,7 @@ public:
     void addInput(char inchar);
     void onDeath();
     void onEscape();
-    void doSystems();
+    void doSystems(float dt);
     void addEvent(Event e);
     void collision(entity_t ent, float dV);
     // handle a menu somehow
@@ -136,8 +138,6 @@ public:
     
     float wasSeen(MapTile* tile);
     void setWasSeen(MapTile* tile, float light);
-
-    
     
     MapTile* getTile(int x, int y, int z);
     MapTile* getTile(float x, float y, float z);
@@ -145,10 +145,16 @@ public:
     MapTile* getTile(Float3 p);
     
     char* getMoodDescription(float mood);
+    int getHungerLevel(float h);
+    int getThirstLevel(float t);
     
     std::deque<std::string> getLog() { return log; }
     void addToLog(std::string str);
     void displayInventory(int action); // 0 for use, 1 for drop, ...
+    
+    void addLabel(const char* str, int x, int y, float time, Float3 color);
+    void addLabel(const char* str, float time, Float3 color);
+    void updateLabels(float time);
     
     Menu* getCurrentMenu() { return currentMenu; }
     void exitMenu(){ free(currentMenu); currentMenu = NULL;}
