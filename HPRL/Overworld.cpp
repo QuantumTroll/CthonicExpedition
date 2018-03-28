@@ -30,16 +30,35 @@ Overworld::Overworld()
     }
     
     // build cave network (development stub)
-    initCaveNode(&root,{1,1,OWdepth-2}, NULL);
-    buildCaverns(&root, 10);
+    //initCaveNode(&root,{1,1,OWdepth-2}, NULL);
+    //buildCaverns(&root, 10);
+    // end stub
     
-    //TODO: this is where we start building the world for real
+    //This is where we start building the world for real
+    
+    // the plan with water:
+    //      draw tunnels through rock
+    //      place water sources (e.g. at Entrance cell, bottom of "wells", etc)
+    //      in MapCell generation, floodfill water
     
     // begin with subglacial streams. These are watery round tunnels that hug the interface between glacier and surface rock.
         // tunnels down from top to surface. record where they are
         // connect verts with horizontals. record their paths or sth
+    // Correction: let's start with a single path. Implement multiple branches later, or even further down
+    PosInt startPos = {2,2,OWdepth-2};
+    
+    PosInt subglacialStart = startPos;
+    PosInt subglacialEnd = sumPosInt(startPos,{5,3,0});
+    
+    buildSubglacialStream(subglacialStart, subglacialEnd);
+    setMapCellType(startPos,MCT_ENTRANCE);
     
     // one or more subglacial streams tunnel down into the rock. These form the first "biome" that the player traverses. Rounded, twisty tunnels form pair-wise — drier upper (with pools) and wetter lower (with fish?). Occasional cavernous spaces with limestone formations. Fossils from Cenozoic to Triassic. Footprints with strange chevron shape.
+    
+    //again with the stub..
+    initCaveNode(&root,subglacialEnd, NULL);
+    buildCaverns(&root,4);
+    // end stub
     
     // narrow, angular pressure cracks in the rock lead to intense downward climb. Water is carried down by a series of falls. Find older fossils — ancient seafood. Same chevron prints.
     
@@ -51,6 +70,37 @@ void Overworld::initCaveNode(CaveNode *cn, PosInt p, CaveNode *parent)
     cn->p = p;
     cn->parent = parent;
     cn->numChild = 0;
+}
+
+void Overworld::setMapCellType(PosInt p, MCType t)
+{
+    cells[p.z][p.x][p.y].type = t;
+}
+
+// build a subglacial tunnel going from A to B
+void Overworld::buildSubglacialStream(PosInt start, PosInt end)
+{
+    // straight path in overworld coords, more twisty on cell-to-cell basis
+    // the path from here to there
+    std::vector<PosInt> path = getStraightPath(start, end);
+    int j;
+    
+    //float flow = 5;
+    
+    // traverse the path and set the cells' connections.
+    MCInfo* prev = &cells[start.z][start.x][start.y];
+    MCInfo* cur;
+    for(j=0;j<path.size(); j++)
+    {
+        cur = &cells[path[j].z][path[j].x][path[j].y];
+        // set cell type to subglacial stream
+        cur->type = MCT_GLACIERBOTTOM;
+        
+        // connections must be along "height" of ice 3*sizez/5
+        // connectCells aware of cur type?
+        connectCells(prev, cur);
+        prev = cur;        
+    }
 }
 
 // build a cavern starting here, going to depth steps
@@ -77,7 +127,7 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
         if(current->parent)
             from = current->parent->p;
         else
-            from = {0,0,0};
+            from = {0,0,1000};
         Float3 prevDir = normaliseFloat3(PosInt2Float3_rounded(diffPosInt(current->p, from)));
         
         Float3 nextDir;
@@ -135,7 +185,8 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
     }
 }
 
-void Overworld::connectCells(MCInfo *a, MCInfo *b, float flow)
+// assume waterflow goes from a to b.
+void Overworld::connectCells(MCInfo *a, MCInfo *b)
 {
     if(a == b) // got the same pointers for some reason :P
         return;
@@ -144,8 +195,6 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b, float flow)
     PosInt pa = a->pos;
     PosInt pb = b->pos;
     
-    
-   // printf("%d %d %d leads to %d %d %d\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
     
     //TODO: add logic that detects duplicate connections and offsets them
  
@@ -176,10 +225,19 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b, float flow)
     }else
         printf("PROBLEM creating mapcell connection: %d %d %d = %d %d %d?\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
     
+    printf("connecting %d %d %d to %d %d %d (%d %d)\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z,a->connection[a->numConnections].dir,b->connection[b->numConnections].dir);
+    
     float offsetX = frand(0.1,0.9);
     float offsetY = frand(0.1,0.9);
-    
     int size = irand(1,4);
+    
+    // if b->type is MCT_GLACIERBOTTOM, the connections must be flat
+    // size is also larger
+    if(b->type == MCT_GLACIERBOTTOM)
+    {
+        offsetY = 0.6; // 3/5, along which the ice lies
+        size ++;
+    }
     
     a->connection[a->numConnections].i = offsetX;
     a->connection[a->numConnections].j = offsetY;
@@ -192,12 +250,14 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b, float flow)
     // waterlevel is related to flow and size and speed.
     // doesn't have to be entirely physical.
     // assume water flows from a to b
-    if(flow == 0)
+  /*  if(flow == 0)
     {
         a->connection[a->numConnections].waterLevel = 0;
+        a->connection[a->numConnections].waterSpeed = 0;
         a->connection[a->numConnections].flowDir = DIR_NONE;
         
         b->connection[b->numConnections].waterLevel = 0;
+        b->connection[b->numConnections].waterSpeed = 0;
         b->connection[b->numConnections].flowDir = DIR_NONE;
     }else {
         // liters/second (flow) is proportional to waterlevel*size*size * speed.
@@ -209,21 +269,22 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b, float flow)
         {
             speed = waterLevel;
             waterLevel = 1;
-        }else if(waterLevel < 1.0/size) // can't have water level less than 1 tile
+        }else if(waterLevel < 1.0/size) // can't have non-zero water level less than 1 tile
         {
             speed = flow/(waterLevel * size); //TODO: this is probably wrong
             waterLevel = 1.0/size;
         }
-    }
-
+        a->connection[a->numConnections].waterLevel = waterLevel;
+        a->connection[a->numConnections].waterSpeed = speed;
+        a->connection[a->numConnections].flowDir = a->connection[a->numConnections].dir;
+        
+        b->connection[b->numConnections].waterLevel = waterLevel;
+        b->connection[b->numConnections].waterSpeed = speed;
+        b->connection[b->numConnections].flowDir = a->connection[a->numConnections].dir; // from a to b...
+    }*/
     
     a->numConnections ++;
     b->numConnections ++;
-}
-
-void Overworld::connectCells(MCInfo *a, MCInfo *b)
-{
-    connectCells(a,b,0);
 }
 
 //MCInfo(int int int) returns a struct with general mapcell gen info

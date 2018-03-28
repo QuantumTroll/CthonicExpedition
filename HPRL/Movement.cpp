@@ -24,8 +24,10 @@ int Movement::isWalkable(PosInt p)
         if(game->getTile(p2.x,p2.y,p2.z-1)->propmask & TP_SLIPPERY)
             return 1;
     }
+    // walkable also if tile is water?
+    return (tile->propmask & TP_WATER) ;
 
-    return 0;
+    //return 0;
 }
 
 int Movement::isSwimmable(PosInt p)
@@ -45,8 +47,8 @@ int Movement::isClimbable(PosInt p)
 {
     MapTile * tile = game->getTile(p.x,p.y,p.z);
     
-    // climbable iff tile is air and a grippable tile is anywhere nearby
-    if(tile->propmask & TP_AIR )
+    // climbable iff tile is air/water and a grippable tile is anywhere nearby
+    if(tile->propmask & (TP_AIR | TP_WATER))
     {
         PosInt pt;
         
@@ -194,7 +196,21 @@ float Movement::swim(Key input, entity_t ent)
         default: fprintf(stderr,"non-move input sent to Movement\n");
     }
     // add water tile's velocity
-    
+    float ws = game->getTile(p)->flowSpeed;
+    Direction wd = game->getTile(p)->flowDir;
+    Float3 wv = {0,0,0};
+    switch(wd)
+    {
+        case DIR_EAST: wv.x += ws; break;
+        case DIR_WEST: wv.x -= ws; break;
+        case DIR_NORTH: wv.y += ws; break;
+        case DIR_SOUTH: wv.y -= ws; break;
+        case DIR_UP: wv.z += ws; break;
+        case DIR_DOWN: wv.z -= ws; break;
+        default: printf("no flow direction");
+    }
+    printf("water flow %f in %d\n",ws,wd);
+    *v = sumFloat3(*v,wv);
     return time;
 }
 
@@ -340,6 +356,8 @@ float Movement::input(Key input)
                     time = move(input, ent);
                 else if(w->move_type[ent] & MOV_CLIMB)
                     time = climb(input, ent);
+                else if(w->move_type[ent] & MOV_SWIM)
+                    time = swim(input, ent);
                 else
                 // otherwise, you're out of luck.
                     time = 1;
@@ -358,17 +376,23 @@ void Movement::exec(float timestep)
     {
         if(w->mask[ent] & mask)
         {
-            if(w->move_type[ent] & MOV_FREE) // update velocity of all free-falling objects
+            if(w->move_type[ent] & (MOV_FREE)) // update velocity of all free-falling objects
             {
                 // do stuff
                 Float3 *p = &(w->position[ent]);
                 Float3 *v = (Float3*)&(w->velocity[ent]);
-                
-                // if velocity is zero and lying on top of a solid, move on
                 PosInt pi = Float32PosInt(*p);
                 
-                if(normFloat3(*v) < 0.01 && game->getTile(pi.x,pi.y,pi.z-1)->propmask & TP_SOLID)
+                // if inside water, set move type to swimming if entity can swim
+                if(  game->getTile(pi.x,pi.y,pi.z)->propmask & TP_WATER )
                 {
+                    if(ent == game->getPlayerEntity())
+                    {
+                        game->addToLog("You start to swim");
+                        w->move_type[game->getPlayerEntity()] = MOV_SWIM;
+                    }
+                }else if(normFloat3(*v) < 0.01 && game->getTile(pi.x,pi.y,pi.z-1)->propmask & TP_SOLID)
+                {// if velocity is zero and lying on top of a solid, move on
                     // consider changing movement type. How do I tell what's appropriate?
                     if(ent == game->getPlayerEntity())
                     {
@@ -388,7 +412,7 @@ void Movement::exec(float timestep)
                     *p = sumFloat3(*p, mulFloat3(*v, dt));  // dt = v * time
                     pi = Float32PosInt(*p);
                     
-                    if(game->getTile(pi.x,pi.y,pi.z)->propmask & TP_SOLID)
+                    if(game->getTile(pi.x,pi.y,pi.z)->propmask & (TP_SOLID))
                     {
                         // tell Game that we just hit something. Give it v to see how hard.
                         game->collision(ent, normFloat3(*v));
@@ -399,6 +423,41 @@ void Movement::exec(float timestep)
                     }
                     piOld = pi;
                 }
+            }else if(w->move_type[ent] & (MOV_SWIM)) // update velocity of all swimming objects
+            {                                   // very similar to freefall
+                // do stuff
+                Float3 *p = &(w->position[ent]);
+                Float3 *v = (Float3*)&(w->velocity[ent]);
+                PosInt pi = Float32PosInt(*p);                            
+                
+                // simulate movement until it hits a solid
+                float dt = 0.001;
+                float t = 0;
+                PosInt piOld = pi;
+                for(t=0; t<timestep; t+=dt)
+                {
+                    *p = sumFloat3(*p, mulFloat3(*v, dt));  // dt = v * time
+                    pi = Float32PosInt(*p);
+                    
+                    if(game->getTile(pi.x,pi.y,pi.z)->propmask & (TP_SOLID))
+                    {
+                        // tell Game that we just hit something. Give it v to see how hard.
+                        game->collision(ent, normFloat3(*v));
+                        pi = piOld; // step back and normalise
+                        *p = PosInt2Float3(pi);
+                        *v = {0,0,0}; // velocity stops
+                        break;
+                    }
+                    piOld = pi;
+                }
+                // if enters air, stop swimming
+                if(game->getTile(*p)->propmask & TP_AIR)
+                    w->move_type[ent] = MOV_FREE;
+                
+                
+                v->x = 0;
+                v->y = 0;
+                v->z = 0;
             }else if(! (w->move_type[ent] & MOV_WIELDED)) {
                 // do simpler stuff for other movement modes
                 Float3 *p = &(w->position[ent]);
@@ -417,11 +476,12 @@ void Movement::exec(float timestep)
                     p->z += timestep*v->z;
                     
                     //check whether a climbing player should start walking. if on nonslippery walkable surface.
+                    //TODO: what about a climbing player who enters water?
                     if(w->move_type[ent] & MOV_CLIMB)
                     {
                         if( game->getHasClimbed())
                         {
-                            if(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_SOLID && !(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_SLIPPERY))
+                            if(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_SOLID && !(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_SLIPPERY) && !(game->getTile(*p)->propmask & TP_WATER))
                             {
                                 w->move_type[ent] = MOV_WALK;
                                 w->position[ent] = PosInt2Float3(Float32PosInt(*p));
@@ -432,19 +492,28 @@ void Movement::exec(float timestep)
                             game->setHasClimbed(1);
                     }
                     
-                    // check whether a walking player should start freefalling. if on air
+                    // check whether a walking player should start freefalling. if in/on air
                     if(w->move_type[ent] & MOV_WALK)
                     {
-                        if(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & TP_AIR)
+                        if(game->getTile((Float3){p->x,p->y,p->z-1})->propmask & (TP_AIR | TP_WATER))
                         {
                             w->move_type[ent] = MOV_FREE;
+                        }
+                        // check whether a walking player should be swimming.
+                        // if inside water, set move type to swimming if entity can swim
+                        if(  game->getTile(*p)->propmask & TP_WATER )
+                        {
+                            if(ent == game->getPlayerEntity())
+                            {
+                                game->addToLog("You start to swim");
+                                w->move_type[game->getPlayerEntity()] = MOV_SWIM;
+                            }
                         }
                     }
                 }
                 v->x = 0;
                 v->y = 0;
                 v->z = 0;
-
             }
         }
     }

@@ -46,8 +46,9 @@ typedef struct
     Direction dir;
     float i, j; //(0,1)
     int size;
-    float waterLevel; //[0,1] // could be tricky for vertical connections
-    Direction flowDir;
+    //float waterLevel; //[0,1] // could be tricky for vertical connections
+    //float waterSpeed;
+    //Direction flowDir;
 } MCConnection;
 
 typedef struct
@@ -57,6 +58,8 @@ typedef struct
     int numConnections;
     MCConnection connection[32];
     short int connectMatrix[32][32];
+    int numWaterSources;
+    PosInt source[32]; //TODO: bug in the making...
 }MCInfo;
 
 typedef struct
@@ -91,11 +94,15 @@ private:
     // cave cells. is a 3d array. Starts with root at ???
     MCInfo *** cells;
     
+    void setMapCellType(PosInt p, MCType t);
+    
     void initCaveNode(CaveNode* cn, PosInt p, CaveNode* parent);
     void buildCaverns(CaveNode* root, int depth);
+    void buildSubglacialStream(PosInt start, PosInt end);
+    
     void connectCells(MCInfo * a, MCInfo * b);
     
-    void connectCells(MCInfo * a, MCInfo * b, float flow);
+   // void connectCells(MCInfo * a, MCInfo * b, float flow);
 public:
     Overworld();
     //MCInfo(int int int) returns a struct with general mapcell gen info

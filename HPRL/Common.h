@@ -9,6 +9,11 @@
 #ifndef Common_h
 #define Common_h
 
+
+
+//#define OMNISIGHT // lighting and visibility always === 1
+
+
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -37,6 +42,33 @@ typedef struct {
 typedef struct {
     int x, y, z;
 } int3;
+
+
+
+typedef enum
+{
+    DIR_NONE = 0,           // 0
+    DIR_WEST = 1 << 0,      // 1
+    DIR_EAST = 1 << 1,      // 2
+    DIR_NORTH = 1 << 2,     // 4
+    DIR_SOUTH = 1 << 3,     // 8
+    DIR_UP = 1 << 4,        // 16
+    DIR_DOWN = 1 << 5       // 32
+}Direction;
+
+static Direction reverse(Direction dir)
+{
+    switch(dir){
+        case DIR_NONE: return DIR_NONE;
+        case DIR_WEST: return DIR_EAST;
+        case DIR_EAST: return DIR_WEST;
+        case DIR_NORTH: return DIR_SOUTH;
+        case DIR_SOUTH: return DIR_NORTH;
+        case DIR_UP: return DIR_DOWN;
+        case DIR_DOWN: return DIR_UP;
+        default: return DIR_NONE;
+    }
+}
 
 
 // Components
@@ -190,6 +222,8 @@ typedef struct {
     int hungerLevel;
     float thirst;
     int thirstLevel;
+    float oxygen;
+    int oxygenLevel;
 } Character;
 
 typedef struct {
@@ -305,32 +339,6 @@ static Float3 minFloat3(Float3 a, Float3 b)
 static Float3 maxFloat3(Float3 a, Float3 b)
 {
     return {(float)fmax(a.x,b.x),(float)fmax(a.y,b.y),(float)fmax(a.z,b.z)};
-}
-
-
-typedef enum
-{
-    DIR_NONE = 0,
-    DIR_WEST = 1 << 0,
-    DIR_EAST = 1 << 1,
-    DIR_NORTH = 1 << 2,
-    DIR_SOUTH = 1 << 3,
-    DIR_UP = 1 << 4,
-    DIR_DOWN = 1 << 5
-}Direction;
-
-static Direction reverse(Direction dir)
-{
-    switch(dir){
-        case DIR_NONE: return DIR_NONE;
-        case DIR_WEST: return DIR_EAST;
-        case DIR_EAST: return DIR_WEST;
-        case DIR_NORTH: return DIR_SOUTH;
-        case DIR_SOUTH: return DIR_NORTH;
-        case DIR_UP: return DIR_DOWN;
-        case DIR_DOWN: return DIR_UP;
-        default: return DIR_NONE;
-    }
 }
 
 

@@ -37,6 +37,7 @@ MapTile * MapCell::getGlobalTile(PosInt p)
 }
 MapTile * MapCell::getTile(PosInt p)
 {
+    
     return &tiles[p.z][p.x][p.y];
 }
 MapTile* MapCell::getFloorTileAbove(PosInt p)
@@ -98,7 +99,7 @@ void MapCell::setGlobalFlow(PosInt gPos, float speed, Direction dir)
 }
 
 
-
+// global
 int MapCell::isInside(Float3 p)
 {
     if(! (gx*sizexy <= p.x  && p.x < (gx+1)*sizexy))
@@ -108,6 +109,12 @@ int MapCell::isInside(Float3 p)
     if(!(gz*sizez <= p.z && p.z < (gz+1)*sizez))
         return false;
     return true;
+}
+
+// local
+int MapCell::isValidTile(PosInt p)
+{
+    return (p.x > -1 && p.x < sizexy && p.y > -1 && p.y < sizexy && p.z > -1 && p.z < sizez);
 }
 
 void MapCell::unload(World* w)
@@ -257,6 +264,15 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             sprintf(tile->mat_name,"air");
             sprintf(tile->mat_description,"Oppressive");
             break;
+        case TT_WATER:
+            tile->propmask = TP_NONE;
+            tile->propmask = (TileProp)(TP_WATER | TP_ISTRANSPARENT | TP_ISVISIBLE);
+            tile->temperature = 5;
+            tile->tex = 42;
+            tile->tex_surface = 41;
+            sprintf(tile->mat_name,"water");
+            sprintf(tile->mat_description,"Freezing");
+            break;
         case TT_ROCK1:
             tile->propmask = TP_NONE;
             tile->propmask = (TileProp)(TP_SOLID | TP_GRIPPABLE | TP_ISVISIBLE);
@@ -302,6 +318,8 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
             sprintf(tile->mat_name,"scree");
             sprintf(tile->mat_description,"Unstable");
             break;
+        default:
+            printf("ERROR: NONEXISTENT TILETYPE");
     }
 }
 
@@ -316,6 +334,8 @@ void MapCell::generateLocalTopology()
 {
     MCInfo info = overworld->getMCInfo(gx, gy, gz);
     
+    // These functions create rock and air, undynamic features
+    // TODO: place watersources so game can propagate water?
     switch(info.type)
     {
         case(MCT_ENTRANCE): genLocalEntrance(info); break;
@@ -328,12 +348,32 @@ void MapCell::generateLocalTopology()
     }
 }
 
-
-
 void MapCell::genTunnel_round(PosInt start, PosInt end, int diam)
 {
-    //genTunnel_square(start, end, diam);
-    setTileType(start,TT_AIR);
+   // genTunnel_round(start, end, diam, DIR_NONE,0, -diam, DIR_NONE);
+//}
+//TODO: get rid of water/flow bullshit from tunnels
+// waterLevel is tiles of water relative to center of tunnel. 0 is center, -diam/2 is bottom, diam/2 is top.
+//void MapCell::genTunnel_round(PosInt start, PosInt end, int diam, Direction flowDir, float waterSpeed, int waterLevel, Direction waterDir)
+//{
+//    waterLevel = 0;
+    // TODO: don't assume that waterDir is DIR_DOWN (i.e. that water is at the bottom of a channel. whatabout falls straight doooown?
+  //  printf("tunnel from %d %d %d to %d %d %d, diam %d, waterLevel %d\n",start.x,start.y,start.z,end.x,end.y,end.z,diam,waterLevel);
+    
+    // blah!
+    
+    
+    //waterLevel = 0;
+   /* int wL = (int)(waterLevel + (diam)/2 + 1);
+   // printf("water %d tiles, diam %d\n",wL, diam);
+    
+    if(waterLevel < diam/2)
+        setTileType(start,TT_AIR);
+    else
+    {
+        setTileType(start,TT_WATER); //TT_WATER
+        setFlow(start,waterSpeed,flowDir);
+    }*/
     
     std::vector<PosInt> path = getStraightPath(start, end);
     path.push_back(start); // don't forget to dig out the start...
@@ -342,7 +382,7 @@ void MapCell::genTunnel_round(PosInt start, PosInt end, int diam)
     
     float rad = diam*0.5;
     
-    // traverse the path and set the tiles to air
+    // traverse the path and set the tiles to air/water
     for(j=0;j<path.size(); j++)
     {
         PosInt pos = path[j];
@@ -355,9 +395,21 @@ void MapCell::genTunnel_round(PosInt start, PosInt end, int diam)
                 for(m=0;m<diam;m++)
                 {
                     pos = sumPosInt(path[j],{k-diam/2,l-diam/2,m-diam/2});
+                    // check if pos is in tile
+                    if(! isValidTile(pos))
+                        continue;
                     float dist = distFloat3(PosInt2Float3(pos),PosInt2Float3(path[j]));
                     if(dist < nrad)
+                    {
+           //             if(m < wL)
+             //           {
+             //               setTileType(pos,TT_WATER); // TT_WATER
+             //               setFlow(pos,waterSpeed,flowDir);
+             //           }else {
+             //               setTileType(pos,TT_AIR);
+             //           }
                         setTileType(pos,TT_AIR);
+                    }
                 }
             }
         }
@@ -495,7 +547,6 @@ entity_t MapCell::makeSlime(Float3 pos, SlimeType type)
         case(SLM_LUMO):
             brightness = 1;
             color = {frand(0,.6),frand(0,.6),frand(0,.6)};
-//            sprintf("world->pickable") //TODO: continue here
             sprintf(world->pickable[slime].name,"luminous slime");
             sprintf(world->is_visible[slime].lookString,"luminous slime");
             world->is_visible[slime].tex = 38;
@@ -565,15 +616,21 @@ void MapCell::genLocalGlacierBottom(MCInfo info)
     {
         for(j=0; j<sizexy; j++)
         {
-            for(k=3*sizez/5; k<sizez; k++)
+            for(k=3*sizez/5+1; k<sizez; k++)
             {
                 setTileType(i,j,k,TT_ICE);
             }
         }
     }
+    
+    //genStandardConnections(info);
+    genSubglacialStreamConnections(info);
+    
+    
+    /*
     // carve out a small center
     
-    for(i=2*sizexy/5; i<3*sizexy/5; i++)
+   for(i=2*sizexy/5; i<3*sizexy/5; i++)
     {
         for(j=2*sizexy/5; j<3*sizexy/5; j++)
         {
@@ -594,9 +651,9 @@ void MapCell::genLocalGlacierBottom(MCInfo info)
     world->position[ent2] =  PosInt2Float3(lPos);
     world->light_source[ent2].brightness = frand(1,5);
     world->light_source[ent2].color = {.7,.9,1};
-    //printf("a light\n");
+    //printf("a light\n");*/
     
-    genStandardConnections(info);
+    
 }
 
 void MapCell::genLocalEntrance(MCInfo info)
@@ -619,7 +676,7 @@ void MapCell::genLocalEntrance(MCInfo info)
     {
         for(j=0; j<sizexy; j++)
         {
-            for(k=3*sizez/5; k<sizez; k++)
+            for(k=3*sizez/5+1; k<sizez; k++)
             {
                 setTileType(i,j,k,TT_ICE);
             }
@@ -630,23 +687,24 @@ void MapCell::genLocalEntrance(MCInfo info)
     {
         for(j=2*sizexy/5; j<3*sizexy/5; j++)
         {
-            for(k=2*sizez/5; k<3*sizez/5; k++)
+            for(k=3*sizez/5+1; k<4*sizez/5; k++)
             {
-                if(i % 5 == 0 && j % 3 == 0)
-                    setTileType(i,j,k,TT_COLUMN);
-                else
-                    setTileType(i,j,k,TT_AIR);
+                setTileType(i,j,k,TT_AIR);
             }
         }
     }
     // carve out a tunnel up
-    genTunnel_round({sizexy/2,sizexy/2,sizez/2}, {sizexy/2,sizexy/2,sizez}, 2);
+    genTunnel_round({sizexy/2,sizexy/2,3*sizez/5+2}, {sizexy/2,sizexy/2,sizez}, 2);
     
+    // carve tiny inflow tunnel from left
+    genTunnel_round({sizexy/2,sizexy/2,3*sizez/5},{1,sizexy/2,3*sizez/5},1);//,DIR_EAST,2,2,DIR_DOWN);
+    //TODO: add water source at inflow
     
-    genStandardConnections(info);
+    //genStandardConnections(info);
+    genSubglacialStreamConnections(info);
     
     // elevator crash site
-    PosInt crashPos = getFloorAbove({sizexy/2,sizexy/2,0});
+    PosInt crashPos = getFloorAbove({sizexy/2,sizexy/2-1,0});
     crashPos = getGlobalPos(crashPos);//
     
     entity_t ent1 = world->createEntity();
@@ -654,7 +712,7 @@ void MapCell::genLocalEntrance(MCInfo info)
     world->position[ent1] =  PosInt2Float3(crashPos);
     world->is_visible[ent1].tex = 8;
     world->is_visible[ent1].tex_side = 9;
-    sprintf(world->is_visible[ent1].lookString,"a broken elevator");
+    sprintf(world->is_visible[ent1].lookString,"a broken submarine");
    // world->light_source[ent1].brightness = 2;
     
     // create a pale light source somewhere above
@@ -723,6 +781,43 @@ void MapCell::genLocalTreasure(MCInfo info)
     genStandardConnections(info);
     
 }
+
+// generate connection tunnels that lie along the ice/soil interface and conserve water flow
+void MapCell::genSubglacialStreamConnections(MCInfo info)
+{
+    int i;
+    PosInt center = {(int)sizexy/2,(int)sizexy/2,(int)3*sizez/5};
+  
+    for(i=0; i<info.numConnections; i++)
+    {
+        //printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info.connection[i].dir);
+        PosInt start;
+        switch(info.connection[i].dir)
+        {
+            case DIR_DOWN: start.z = 0; start.x = info.connection[i].i*sizexy; start.y = info.connection[i].j*sizexy; break;
+            case DIR_UP: start.z = sizez-1; start.x = info.connection[i].i*sizexy; start.y = info.connection[i].j*sizexy; break;
+            case DIR_NORTH: start.y = sizexy-1; start.x = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
+            case DIR_SOUTH: start.y = 0; start.x = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
+            case DIR_EAST: start.x = sizexy-1; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
+            case DIR_WEST: start.x = 0; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
+            default: start = {0,0,0};
+        }
+        
+        int size = info.connection[i].size;
+        int altOffset = 0;
+        // TODO: figure out an offset that preserves waterlevel between segments
+        //altOffset = size - 1;
+        
+        start = sumPosInt(start,{0,0,altOffset});
+        center = sumPosInt(center,{0,0,altOffset});
+        
+       //deal with up/down bendy streams in a better way in gentunnel_round
+        printf("connecting some shiznit from %d %d %d to %d\n",gx,gy,gz,info.connection[i].dir);
+        genTunnel_round(start, center, size);
+        
+    }
+}
+
 
 void MapCell::genStandardConnections(MCInfo info, PosInt center)
 {

@@ -147,6 +147,7 @@ public:
     char* getMoodDescription(float mood);
     int getHungerLevel(float h);
     int getThirstLevel(float t);
+    int getOxygenLevel(float oxygen);
     
     std::deque<std::string> getLog() { return log; }
     void addToLog(std::string str);

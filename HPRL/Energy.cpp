@@ -12,7 +12,7 @@ void EnergySystem::exec(float timestep)
 {
     player = game->getPlayerEntity();
     // recover
-    pc->energy += pc->recover*timestep;
+    pc->energy += pc->recover*fmax(pc->oxygen,0)*timestep;
     if(pc->energy > pc->maxEnergy - pc->bruise)
         pc->energy = pc->maxEnergy - pc->bruise;
     
@@ -21,7 +21,6 @@ void EnergySystem::exec(float timestep)
         pc->energy -= pc->bleed*timestep;
         //game->addToLog("You're bleeding.");
     }
-    
 
     float moveCost = 0;
     // check movement mode
@@ -152,6 +151,47 @@ void EnergySystem::exec(float timestep)
             default: sprintf(s,"??");
         }
         game->addLabel(s,3,{.8,.8,1});
+    }
+    
+    //TODO: update pc->oxygen
+    // if inside water and tile above not air
+    PosInt p = Float32PosInt(world->position[player]);
+    PosInt p2 = sumPosInt(p, {0,0,1});
+    if(game->getTile(p)->propmask & TP_WATER && !(game->getTile(p2)->propmask & TP_AIR) )
+    {
+        pc->oxygen -= 0.2; // TODO: equipment & slimes will affect this
+    }else {
+        pc->oxygen = fmin(1,pc->oxygen+0.3);        
+    }
+    
+    int oL = game->getOxygenLevel(pc->oxygen);
+    if(oL != pc->oxygenLevel)
+    {
+        char s[32];
+        if(oL < pc->oxygenLevel)
+        {
+            switch(oL)
+            {
+                case 0: sprintf(s,"Fainting!"); break;
+                case 1: sprintf(s,"Holding breath"); break;
+                case 2: sprintf(s,"Holding breath "); break;
+                case 3: sprintf(s,"Magicarp"); break; // shouldn't show up, should it?
+                default: sprintf(s,"??");
+            }
+            game->addLabel(s,3,{1,.7,.7});
+        }else {
+            switch(oL)
+            {
+                case 0: sprintf(s,"Goldeen"); break;    // shouldn't show up, should it?
+                case 1: sprintf(s,"Catching breath"); break;
+                case 2: sprintf(s,"Catching breath "); break;
+                case 3: sprintf(s,"Caught breath"); break;
+                default: sprintf(s,"??");
+            }
+            game->addLabel(s,3,{.7,1,.7});
+        }
+        
+        pc->oxygenLevel = oL;
     }
     
     // mood evolution varies depending on many factors

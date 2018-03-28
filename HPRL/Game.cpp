@@ -53,7 +53,7 @@ void World::saveEntity(entity_t ent, FILE *f)
 void Game::init()
 {
     time = 0;
-    srandom(2);
+    srandom(3);
     
     // create a player character
     
@@ -74,13 +74,15 @@ void Game::init()
     pc.thirst = .10;
     pc.hungerLevel = getHungerLevel(pc.hunger);
     pc.thirstLevel = getThirstLevel(pc.thirst);
+    pc.oxygen = 1;
+    pc.oxygenLevel = getOxygenLevel(pc.oxygen);
 
 // create a player entity
     player = world->createEntity();
     world->mask[player] = COMP_IS_PLAYER_CONTROLLED | COMP_IS_VISIBLE | COMP_CAN_MOVE | COMP_POSITION;
   //  world->is_player_controlled[player].is_player_controlled = 1;
   //  world->is_visible[player].is_visible = 1;
-    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5),(float)(cellSizeZ*28.5-2)};
+    world->position[player] = {(float)(cellSizeXY*2.5),(float)(cellSizeXY*2.5-1),(float)(cellSizeZ*28.5+3)};
     world->velocity[player] = {0,0,0};
     world->is_visible[player].tex = 266; // some thing
     world->is_visible[player].tex_side = 266; // some thing
@@ -595,6 +597,17 @@ void Game::doSystems(float dt)
         // shift the current cell coords
         cellCoords = currentCellCoords;
         
+        //TODO: propagate water here. Need to know sources... from mcinfo?
+        // so how does water propagation work?
+        // have stack of waterfront tiles, sorted by z-level
+        //   pop a lowest waterfront tile, check directions where it can spread
+        //   direction of flow of waterfront set in direction of new tiles
+        //   spread water in those directions, add those tiles as new waterfronts
+        //   if new waterfront is across a mapcell boundary, save to mcinfo as new source
+        //   repeat until no more waterfront tiles
+        
+        // TODO: going back upstream *requires* loading saved cells.
+        
         //TEST:
         //for(i=-40;i<40;i++)
         //    printf("%d gets cell %d\n",i,getCellCoords(i,0,0).x);
@@ -641,7 +654,7 @@ int Game::getHungerLevel(float hunger)
 }
 int Game::getThirstLevel(float thirst)
 {
-    printf("get thirst level %f\n",thirst);
+   // printf("get thirst level %f\n",thirst);
     if(thirst < 0.125)
         return 3;
     else if(thirst < 0.5)
@@ -650,6 +663,18 @@ int Game::getThirstLevel(float thirst)
         return 1;
     else
         return 0;
+}
+
+int Game::getOxygenLevel(float oxygen)
+{
+    if(oxygen < 0.125)
+        return 0;
+    else if(oxygen < 0.5)
+        return 1;
+    else if(oxygen < 0.75)
+        return 2;
+    else
+        return 3;
 }
 
 void Game::lookReport()
@@ -1402,6 +1427,7 @@ char* Game::getMoodDescription(float mood)
     return m;
 }
 
+/***** DEPRECATED ******/
 float Game::lighting(Float3 p)
 {
     // find ents with the right components
@@ -1431,25 +1457,28 @@ float Game::lighting(Float3 p)
                 Float3 lightDir = {0,0,0};
                 if(look != 0) // if player is Looking about
                 {
+                    printf("foo\n");
                     Float3 la = PosInt2Float3(lookAt);
+                    la.z -= 0.5;
                     lightDir = normaliseFloat3(diffFloat3({la.x,la.y,la.z}, world->position[player]));
-                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.z))
                     {
                         lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
                     }
                 
                 }else
                 {
+                    printf("bar\n");
                     // light direction from player's facing
                     lightDir = normaliseFloat3(pc.facing);
-                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.z))
                     {
                         lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
                     }
                 }
                 
                 // TODO: fix for short ranges? point down more when shining short distance at empty air?
-                lightDir = normaliseFloat3({lightDir.x,lightDir.y,(float)(lightDir.z-0)});
+                //lightDir = normaliseFloat3({lightDir.x,lightDir.y,(float)(lightDir.z-0)});
                 // what is the angle between? arccos( v1 dot v2 )
                 float dot = dotFloat3(lightDir, pointDir);
                 if(dot <= 0)
@@ -1480,6 +1509,9 @@ float Game::lighting(Float3 p)
 
 Float3 Game::lighting3f(Float3 p)
 {
+#ifdef OMNISIGHT
+    return {1,1,1};
+#endif
     Float3 light = {0,0,0};
     // find ents with the right components
     entity_t ent;
@@ -1501,9 +1533,12 @@ Float3 Game::lighting3f(Float3 p)
             if(l < 0.05)
                 continue;
             
-            // if directional, check whether it's within light cone
-            if(world->mask[ent] & COMP_DIRLIGHT)
+            float close = 1.5;
+            
+            // if directional, check whether it's within light cone and beyond "close" distance
+            if(world->mask[ent] & COMP_DIRLIGHT && distance > close)
             {
+                //sumFloat3(p,{0,0,-0.5});
                 // direction between point p and the light's position
                 Float3 pointDir = normaliseFloat3(diffFloat3(p, sourcePos));
                 
@@ -1513,8 +1548,9 @@ Float3 Game::lighting3f(Float3 p)
                 if(look != 0) // if player is Looking about
                 {
                     Float3 la = PosInt2Float3(lookAt);
+                    //la.z += 0.5;
                     lightDir = normaliseFloat3(diffFloat3({la.x,la.y,la.z}, world->position[player]));
-                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.z))
                     {
                         lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
                     }
@@ -1523,19 +1559,23 @@ Float3 Game::lighting3f(Float3 p)
                 {
                     // light direction from player's facing
                     lightDir = normaliseFloat3(pc.facing);
-                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.y))
+                    if(isnan(lightDir.x) || isnan(lightDir.y) || isnan(lightDir.z))
                     {
                         lightDir.x = 0;lightDir.y = 0; lightDir.z = -1;
                     }
                 }
                 
-                // TODO: fix for short ranges? point down more when shining short distance at empty air?
                 lightDir = normaliseFloat3({lightDir.x,lightDir.y,(float)(lightDir.z-0)});
                 // what is the angle between? arccos( v1 dot v2 )
                 float dot = dotFloat3(lightDir, pointDir);
                 if(dot <= 0)
                     continue;
                 float angle = fabs(acosf(dot)*180.0/M_PI); // in degrees
+                
+                // hacky fix for short distances. Look ok tho.
+                if(distance < 3)
+                    angle *= 0.5;
+                
                 if(angle > world->light_source[ent].width)
                     continue;
             }
@@ -1543,9 +1583,9 @@ Float3 Game::lighting3f(Float3 p)
             if(pointVisibility(sourcePos, p) \
                || pointVisibility(sumFloat3(sourcePos,{-0.45,0,0}),p) \
                || pointVisibility(sumFloat3(sourcePos,{0,-0.45,0}),p) \
+               || pointVisibility(sumFloat3(sourcePos,{0,0,-0.45}),p) \
                || pointVisibility(sumFloat3(sourcePos,{0.45,0,0}),p) \
                || pointVisibility(sumFloat3(sourcePos,{0,0.45,0}),p) \
-               || pointVisibility(sumFloat3(sourcePos,{0,0,-0.45}),p) \
                || pointVisibility(sumFloat3(sourcePos,{0,0,0.45}),p) \
                )
             {
@@ -1554,8 +1594,7 @@ Float3 Game::lighting3f(Float3 p)
             //TODO (for better vertical coverage): try shifting sourcePos around north/south and east/west and retesting
         }
     }
-    return minFloat3({1,1,1},light);
-    //return {1,1,1};
+    return minFloat3({1,1,1},light);    
 }
 
 int Game::pointVisibility(Float3 f, Float3 t)
@@ -1591,11 +1630,15 @@ int Game::pointVisibility(Float3 f, Float3 t)
 
 int Game::visibility(PosInt from, PosInt to)
 {
+    if(! eyesOpen)
+        return 0;
+#ifdef OMNISIGHT
+    return 1;
+#endif
     if(manhattanPosInt(from, to) == 1)
         return 1;
  
-    if(! eyesOpen)
-        return 0;
+    
     
     // step along several lines from from to to. check
     Float3 f = PosInt2Float3(from);

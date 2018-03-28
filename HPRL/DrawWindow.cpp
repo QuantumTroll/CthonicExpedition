@@ -807,15 +807,6 @@ void DrawWindow::drawWorldY()
                     tp = sumFloat3(tp, {0.5f, 0.5f, 0.5f});
                     
                     float q = 0.49;
-                    //  printf("tl");
-                   /* float tl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,q})));
-                    // printf("tr");
-                    float tr = fmin(1,game->lighting(sumFloat3(tp,{0,q,q})));
-                    // printf("br");
-                    float br = fmin(1,game->lighting(sumFloat3(tp,{0,q,-q})));
-                    // printf("bl");
-                    float bl = fmin(1,game->lighting(sumFloat3(tp,{0,-q,-q})));
-                    */
                     
                     shade_side[i][j+shadeOffset][0] = maxFloat3(shade_side[i][j+shadeOffset][0], game->lighting3f(sumFloat3(tp,{0,-q,q})));
                     shade_side[i][j+shadeOffset][1] = maxFloat3(shade_side[i][j+shadeOffset][1],game->lighting3f(sumFloat3(tp,{0,q,q})));
@@ -1052,7 +1043,7 @@ void DrawWindow::drawCurrentMenu()
     if(menu)
     {
         int menuX = 2*tiles_on_screen_x/3;
-        int menuY = 3*tiles_on_screen_y/4;
+        int menuY = 2*tiles_on_screen_y/6;
         drawMenu(menuX,menuY,menuX+menu->x,menuY+menu->y,menu->numOptions,menu->options);
     }
 }
