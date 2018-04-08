@@ -72,24 +72,22 @@ private:
     
     MapTile *** tiles;
     
-    std::vector<PosInt> waterSources; // TODO: probably want a vector of structs to communicate water temperature and similar
     
     PosInt getLocalPos(PosInt gPos);
     PosInt getGlobalPos(PosInt lPos);
     
-    void genLocalCrystalCave(MCInfo info);
-    void genLocalTreasure(MCInfo info);
-    void genLocalGlacierBottom(MCInfo info);
-    void genLocalGlacier(MCInfo info);
-    void genStandardConnections(MCInfo info);
-    void genStandardConnections(MCInfo info, PosInt center);
-    void genSubglacialStreamConnections(MCInfo info);
-    void genLocalEntrance(MCInfo info);
-    void genLocalDefault(MCInfo info);
+    void genLocalCrystalCave(MCInfo* info);
+    void genLocalTreasure(MCInfo* info);
+    void genLocalGlacierBottom(MCInfo* info);
+    void genLocalGlacier(MCInfo* info);
+    void genStandardConnections(MCInfo* info);
+    void genStandardConnections(MCInfo* info, PosInt center);
+    void genSubglacialStreamConnections(MCInfo* info);
+    void genLocalEntrance(MCInfo* info);
+    void genLocalDefault(MCInfo* info);
     void genTunnel_square(PosInt start, PosInt end, int diam);
     void genTunnel_round(PosInt start, PosInt end, int diam);
-   // void genTunnel_round(PosInt start, PosInt end, int diam, Direction flowDir, float waterSpeed, float waterLevel);
-    //void genTunnel_round(PosInt start, PosInt end, int diam, Direction flowDir, float waterSpeed, int waterLevel, Direction waterDir);
+    void genTunnel_round(PosInt start, PosInt end, int diam, int jitterxy, int jitterz);
     void genTunnel_round_straight(PosInt start, PosInt end, int diam);
     void genVoid_sphere(PosInt center, int radius);
     void genVoid_sphere(PosInt center, int radius, int lumps);
@@ -106,6 +104,7 @@ private:
     void setGlobalFlow(PosInt gPos, float speed, Direction dir);
     
 public:
+    MapCell(int sxy, int sz, int x, int y, int z, Overworld* ow);
     MapTile* getGlobalTile(PosInt p);
     MapTile* getGlobalTile(int x, int y, int z);
     
@@ -114,7 +113,12 @@ public:
     MapTile* getGlobalFloorTileAbove(PosInt p);
     MapTile* getGlobalCeilingTileBelow(PosInt p);
     
-    void propagateWater();
+    int isEdge(PosInt p);
+    int isGlobalEdge(PosInt p);
+    
+    std::vector<PosInt> waterSources; // TODO: probably want a vector of structs to communicate water temperature and similar
+    
+    //void propagateWater();
     
     // these are found in Game
    // float wasSeen(MapTile* tile);
@@ -124,11 +128,11 @@ public:
     entity_t makeLight(Float3 pos, float brightness, Float3 color, entity_t ent);
     entity_t makeSlime(Float3 pos, SlimeType type);
     
+    void setTileType(MapTile* tile, TileType tt);
     void setTileType(PosInt p, TileType tt);
+    void setGlobalTileType(PosInt p, TileType tt);
     void setTileType(int x, int y, int z, TileType tt);
 
-    MapCell(int sxy, int sz, int x, int y, int z, Overworld* ow);
-    
     void unload(World* w);
     void load(World* w, int x, int y, int z);
 };

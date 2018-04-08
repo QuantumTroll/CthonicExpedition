@@ -120,6 +120,9 @@ void Game::init()
               //  printf("cell %d %d %d has coords %d %d %d\n",i,j,k,i,j,k);
             }
     
+    // propagate water in new cells
+    propagateWater();
+    
     addToLog("You wake up in the test cave. There is no escape.");
     turnOn();
 }
@@ -155,6 +158,7 @@ void Game::addInput(char inchar)
             case 'e': input = KEY_EXAMINE; break;
             case 'g': input = KEY_PICKUP; break;
             case 'd': input = KEY_DROP; break;
+            case 'y': input = KEY_GHOST; break;
             default: input = KEY_NONE; printf("char %c (%d) pressed\n",inchar, (int) inchar);
         }
     }else {
@@ -223,7 +227,7 @@ void Game::dropItem(entity_t ent)
     {
         sprintf(world->is_visible[ent].lookString,"Bandages");
         // placeholder
-        world->is_visible[ent].tex = 32;       //TODO: draw
+        world->is_visible[ent].tex = 32;
         world->is_visible[ent].tex_side = 32;
     }else if(world->pickable[ent].type == ITM_FLARE)
     {
@@ -410,6 +414,9 @@ void Game::doSystems(float dt)
             char s[32];
             sprintf(s,"You are in cell %d %d %d",cellCoords.x,cellCoords.y,cellCoords.z);
             addToLog(s);
+        }else if(input & KEY_GHOST)
+        {
+            toggleGhost();
         }else if(input & KEY_CLOSEEYES)
         {
             toggleCloseEyes();
@@ -443,169 +450,12 @@ void Game::doSystems(float dt)
     PosInt currentCellCoords = getCellCoords(Float32PosInt_rounded( world->position[player]));
     if(manhattanPosInt(cellCoords, currentCellCoords) > 0)
     {
-        // offload old cells, load new cells
-        printf("player at cell %d %d %d, UN/LOAD CELLS\n",currentCellCoords.x,currentCellCoords.y,currentCellCoords.z);
-
-        int i, j;
+        // move cells
+        moveCells(currentCellCoords);
         
-        // move cells in local matrix
-        if(cellCoords.x < currentCellCoords.x) // moved right
-        {
-            // unload cell[0][*][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[0][i][j]->unload(world);
-                    delete cell[0][i][j];
-                }
-            // cell[0][*][*] = cell[1][*][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[0][i][j] = cell[1][i][j];
-            // cell[1][*][*] = cell[2][*][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[1][i][j] = cell[2][i][j];
-            // cell[2][*][*] = load 9 cells
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[2][i][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+1,currentCellCoords.y+i-1,currentCellCoords.z+j-1, overworld);
-                    cell[2][i][j]->load(world,currentCellCoords.x+1,currentCellCoords.y+i-1,currentCellCoords.z+j-1);
-                }
-        }else if(cellCoords.x > currentCellCoords.x) // moved left
-        {
-            // unload cell[2][*][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++){
-                    cell[2][i][j]->unload(world);
-                    delete cell[2][i][j];
-                }
-            // cell[2][*][*] = cell[1][*][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[2][i][j] = cell[1][i][j];
-            // cell[1][*][*] = cell[0][*][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[1][i][j] = cell[0][i][j];
-            // cell[0][*][*] = load 9 cells
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[0][i][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x-1,currentCellCoords.y+i-1,currentCellCoords.z+j-1, overworld);
-                    cell[0][i][j]->load(world,currentCellCoords.x-1,currentCellCoords.y+i-1,currentCellCoords.z+j-1);
-                }
-        }else if(cellCoords.y < currentCellCoords.y) // moved north
-        {
-            // unload cell[*][0][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][0][j]->unload(world);
-                    delete cell[i][0][j];
-                }
-            // cell[*][0][*] = cell[*][1][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][0][j] = cell[i][1][j];
-            // cell[*][1][*] = cell[*][2][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][1][j] = cell[i][2][j];
-            // cell[*][2][*] = load 9 cells
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][2][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+1,currentCellCoords.z+j-1, overworld);
-                    cell[i][2][j]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+1,currentCellCoords.z+j-1);
-                }
-        }else if(cellCoords.y > currentCellCoords.y) // moved south
-        {
-            // unload cell[*][2][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][2][j]->unload(world);
-                    delete cell[i][2][j];
-                }
-            // cell[*][2][*] = cell[*][1][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][2][j] = cell[i][1][j];
-            // cell[*][1][*] = cell[*][0][*]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][1][j] = cell[i][0][j];
-            // cell[*][0][*] = load 9 cells
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][0][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y-1,currentCellCoords.z+j-1, overworld);
-                    cell[i][0][j]->load(world,currentCellCoords.x+i-1,currentCellCoords.y-1,currentCellCoords.z+j-1);
-                }
-        }else if(cellCoords.z < currentCellCoords.z) // moved up
-        {
-            // unload cell[*][*][0]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][j][0]->unload(world);
-                    delete cell[i][j][0];
-                }
-            // cell[*][*][0] = cell[*][*][1]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][j][0] = cell[i][j][1];
-            // cell[*][*][1] = cell[*][*][2]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][j][1] = cell[i][j][2];
-            // cell[*][*][2] = load 9 cells
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][j][2] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z+1, overworld);
-                    cell[i][j][2]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z+1);
-                }
-        }else if(cellCoords.z > currentCellCoords.z) // moved down
-        {
-            // unload cell[*][*][2]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][j][2]->unload(world);
-                    delete cell[i][j][2];
-                }
-            // cell[*][*][2] = cell[*][*][1]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][j][2] = cell[i][j][1];
-            // cell[*][*][1] = cell[*][*][0]
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                    cell[i][j][1] = cell[i][j][0];
-            // cell[*][*][0] = load 9 cells
-            for(i=0;i<3;i++)
-                for(j=0;j<3;j++)
-                {
-                    cell[i][j][0] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z-1, overworld);
-                    cell[i][j][0]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z-1);
-                }
-        }
-        
-        // shift the current cell coords
-        cellCoords = currentCellCoords;
-        
-        //TODO: propagate water here. Need to know sources... from mcinfo?
-        // so how does water propagation work?
-        // have stack of waterfront tiles, sorted by z-level
-        //   pop a lowest waterfront tile, check directions where it can spread
-        //   direction of flow of waterfront set in direction of new tiles
-        //   spread water in those directions, add those tiles as new waterfronts
-        //   if new waterfront is across a mapcell boundary, save to mcinfo as new source
-        //   repeat until no more waterfront tiles
-        
+        // propagate water in new cells
+        propagateWater();
+                
         // TODO: going back upstream *requires* loading saved cells.
         
         //TEST:
@@ -637,7 +487,413 @@ void Game::doSystems(float dt)
         if(world->position[look].z < 0)
             lookAt.z --;                
     }
+    printf("look at %d %d %d\n",lookAt.x,lookAt.y,lookAt.z);
     turnOff();
+}
+
+void Game::addWaterSource(PosInt p, MCInfo* mci)
+{
+    int i;
+    if(mci->numWaterSources < maxWaterSourcesPerCell) {
+        int alreadyThere = 0;
+        for(i=0;i<mci->numWaterSources; i++)
+        {
+            if( distPosInt(mci->source[i],p) < 1) // < 2 would also be fine i think
+            {
+                alreadyThere = 1;
+            }
+        }
+        if(! alreadyThere) {
+            mci->source[mci->numWaterSources] = p;
+            mci->numWaterSources++;
+            printf("water source at %d %d %d\n",p.x,p.y,p.z);
+        }
+        printf("water source at %d %d %d\n",p.x,p.y,p.z);
+    }else {
+        printf("Too many watersources at %d %d %d\n",p.x,p.y,p.z);
+    }
+}
+
+void Game::propagateWater()
+{
+    // propagate water here. Need to know sources... from mcinfo?
+    // so how does water propagation work?
+    // go through cells' mcinfo:s for sources. push onto stack of waterfront tiles
+    // have stack of waterfront tiles, sorted by z-level
+    //   pop a lowest waterfront tile, check directions where it can spread
+    //   direction of flow of waterfront set in direction of new tiles
+    //   spread water in those directions, add those tiles as new waterfronts
+    //   if new waterfront is across a mapcell boundary, save to mcinfo as new source
+    //   repeat until no more waterfront tiles
+    
+    int i,j, k;
+    int s;
+    std::queue<PosInt> waterFront;
+    
+    for(i=0; i<3; i++)
+    {
+        for(j=0; j<3; j++)
+        {
+            for(k=0; k<3; k++)
+            {
+                // go through watersources of cell ijk and add to waterfront
+                for(s=0; s < cell[i][j][k]->waterSources.size(); s++)
+                {
+                    waterFront.push(cell[i][j][k]->waterSources[s]);
+                   // printf("waterfront added at %d %d %d\n",cell[i][j][k]->waterSources[s].x,cell[i][j][k]->waterSources[s].y,cell[i][j][k]->waterSources[s].z);
+                }
+            }
+        }
+    }
+    
+    while(! waterFront.empty())
+    {
+        PosInt p = waterFront.front();
+        waterFront.pop();
+        MapTile* t = getTile(p);
+        if(t->propmask & TP_WATER)
+            continue;
+        
+        setTileType(p, TT_WATER);
+        t->flowDir = DIR_NONE;
+        t->flowSpeed = 1;
+       // printf("made tile in %d %d %d into water\n",p.x,p.y,p.z);
+        // look around for where water can flow, add to waterfront queue
+        // IMPORTANT: if water runs down, don't run to the sides, otherwise spread out
+        
+        // check for map cell boundaries and make into sources. If we're at an outside boundary, don't propagate across bdy.
+        MapCell * cell = getCellatCoords(p);
+        if(cell->isGlobalEdge(p))
+        {
+            //printf("%d\n",__LINE__);
+            // tell overworld to add water source to this cell's info
+            
+            PosInt gp = getCellCoords(p);
+            MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+            addWaterSource(p,mci);
+        }
+        
+        // TODO: make it so small z-level bumps don't stop all water. Esp. 1 z-level should be ok.
+        // but how?
+        //
+        // if water is absorbed/lost on a tile, go to max z and that record tile.
+        //   For each such tile, travel through water body within a given radius  searching for a higher point
+        //   if higher point is closer than this threshold distance, then make air around higher point into new waterfronts
+        int hasOutflow = 0;
+        
+        PosInt p2 = sumPosInt(p,{0,0,-1});
+        if(isInBounds(p2) && getTile(p2)->propmask & TP_AIR)
+        {
+            t->flowDir = DIR_DOWN;
+            waterFront.push(p2);
+            hasOutflow++;
+            continue; //comment this out to make water spread over bumps
+        }else if(! isInBounds(p2))
+        {
+            // tell overworld to add water source to this cell's info
+            PosInt gp = getCellCoords(p2);
+            MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+            addWaterSource(p2,mci);
+            hasOutflow++;
+        }
+        p2 = sumPosInt(p,{-1,0,0});
+        if(isInBounds(p2) && getTile(p2)->propmask & TP_AIR)
+        {
+            t->flowDir = DIR_WEST;
+            waterFront.push(p2);
+            hasOutflow++;
+        }else if(! isInBounds(p2))
+        {
+            // tell overworld to add water source to this cell's info
+            PosInt gp = getCellCoords(p2);
+            MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+            addWaterSource(p2,mci);
+            hasOutflow++;
+        }
+        p2 = sumPosInt(p,{1,0,0});
+        if(isInBounds(p2) && getTile(p2)->propmask & TP_AIR)
+        {
+            t->flowDir = DIR_EAST;
+            waterFront.push(p2);
+            hasOutflow++;
+        }else if(! isInBounds(p2))
+        {
+            // tell overworld to add water source to this cell's info
+            PosInt gp = getCellCoords(p2);
+            MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+            addWaterSource(p2,mci);
+            hasOutflow++;
+        }
+        p2 = sumPosInt(p,{0,-1,0});
+        if(isInBounds(p2) && getTile(p2)->propmask & TP_AIR)
+        {
+            t->flowDir = DIR_SOUTH;
+            waterFront.push(p2);
+            hasOutflow++;
+        }else if(! isInBounds(p2))
+        {
+            // tell overworld to add water source to this cell's info
+            PosInt gp = getCellCoords(p2);
+            MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+            addWaterSource(p2,mci);
+            hasOutflow++;
+        }
+        p2 = sumPosInt(p,{0,1,0});
+        if(isInBounds(p2) && getTile(p2)->propmask & TP_AIR)
+        {
+            t->flowDir = DIR_NORTH;
+            waterFront.push(p2);
+            hasOutflow++;
+        }else if(! isInBounds(p2))
+        {
+            // tell overworld to add water source to this cell's info
+            PosInt gp = getCellCoords(p2);
+            MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+            addWaterSource(p2,mci);
+            hasOutflow++;
+        }
+        
+        if(! hasOutflow)
+        {
+            // if water is absorbed/lost on a tile, go to max z and that record tile.
+            p2 = p;
+            PosInt highest = p2;
+            while(getTile(p2)->propmask & TP_WATER)
+            {
+                highest = p2;
+                p2.z ++;
+            }
+            printf("no outflow from %d %d %d, high z %d\n",p.x,p.y,p.z,highest.z);
+            //For each such tile, travel through water body within a given radius searching for a point of water with surrounding air
+            int overflowRad = 5;
+            for( i=-overflowRad; i<=overflowRad; i++ )
+            {
+               //for ( j=-overflowRad; j<=overflowRad; j++ )
+              for(j=0; j < 1; j++)
+               {
+                   p2 = sumPosInt(highest, {i,j,0});
+                   if(isInBounds(p2) && getTile(p2)->propmask & TP_WATER)
+                   {
+                       printf("found water at %d %d %d\n",p2.x,p2.y,p2.z);
+                       PosInt high = p2;
+                       while(getTile(p2)->propmask & TP_WATER)
+                       {
+                           high = p2;
+                           p2.z ++;
+                       }
+                       p2 = high;
+                       // make air around this point into new waterfronts
+                       PosInt p3 = sumPosInt(p2,{-1,0,0});
+                       if(isInBounds(p3) && getTile(p3)->propmask & TP_AIR)
+                       {
+                           t->flowDir = DIR_WEST;
+                           waterFront.push(p3);
+                       }else if(! isInBounds(p3))
+                       {
+                           // tell overworld to add water source to this cell's info
+                           PosInt gp = getCellCoords(p3);
+                           MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+                           addWaterSource(p3,mci);
+                       }
+                       p3 = sumPosInt(p2,{1,0,0});
+                       if(isInBounds(p3) && getTile(p3)->propmask & TP_AIR)
+                       {
+                           t->flowDir = DIR_EAST;
+                           waterFront.push(p3);
+                       }else if(! isInBounds(p3))
+                       {
+                           // tell overworld to add water source to this cell's info
+                           PosInt gp = getCellCoords(p3);
+                           MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+                           addWaterSource(p3,mci);
+                       }
+                       p3 = sumPosInt(p2,{0,-1,0});
+                       if(isInBounds(p3) && getTile(p3)->propmask & TP_AIR)
+                       {
+                           t->flowDir = DIR_SOUTH;
+                           waterFront.push(p3);
+                       }else if(! isInBounds(p3))
+                       {
+                           // tell overworld to add water source to this cell's info
+                           PosInt gp = getCellCoords(p3);
+                           MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+                           addWaterSource(p3,mci);
+                       }
+                       p3 = sumPosInt(p2,{0,1,0});
+                       if(isInBounds(p3) && getTile(p3)->propmask & TP_AIR)
+                       {
+                           t->flowDir = DIR_NORTH;
+                           waterFront.push(p3);
+                       }else if(! isInBounds(p3))
+                       {
+                           // tell overworld to add water source to this cell's info
+                           PosInt gp = getCellCoords(p3);
+                           MCInfo * mci = overworld->getMCInfo(gp.x,gp.y,gp.z);
+                           addWaterSource(p3,mci);
+                       }
+                   }
+               }
+            }
+        }
+    }
+    
+}
+
+void Game::moveCells(PosInt currentCellCoords)
+{
+    // offload old cells, load new cells
+    printf("player at cell %d %d %d, UN/LOAD CELLS\n",currentCellCoords.x,currentCellCoords.y,currentCellCoords.z);
+    
+    int i, j;
+    
+    // move cells in local matrix
+    if(cellCoords.x < currentCellCoords.x) // moved right
+    {
+        // unload cell[0][*][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[0][i][j]->unload(world);
+                delete cell[0][i][j];
+            }
+        // cell[0][*][*] = cell[1][*][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[0][i][j] = cell[1][i][j];
+        // cell[1][*][*] = cell[2][*][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[1][i][j] = cell[2][i][j];
+        // cell[2][*][*] = load 9 cells
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[2][i][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+1,currentCellCoords.y+i-1,currentCellCoords.z+j-1, overworld);
+                cell[2][i][j]->load(world,currentCellCoords.x+1,currentCellCoords.y+i-1,currentCellCoords.z+j-1);
+            }
+    }else if(cellCoords.x > currentCellCoords.x) // moved left
+    {
+        // unload cell[2][*][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++){
+                cell[2][i][j]->unload(world);
+                delete cell[2][i][j];
+            }
+        // cell[2][*][*] = cell[1][*][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[2][i][j] = cell[1][i][j];
+        // cell[1][*][*] = cell[0][*][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[1][i][j] = cell[0][i][j];
+        // cell[0][*][*] = load 9 cells
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[0][i][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x-1,currentCellCoords.y+i-1,currentCellCoords.z+j-1, overworld);
+                cell[0][i][j]->load(world,currentCellCoords.x-1,currentCellCoords.y+i-1,currentCellCoords.z+j-1);
+            }
+    }else if(cellCoords.y < currentCellCoords.y) // moved north
+    {
+        // unload cell[*][0][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][0][j]->unload(world);
+                delete cell[i][0][j];
+            }
+        // cell[*][0][*] = cell[*][1][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][0][j] = cell[i][1][j];
+        // cell[*][1][*] = cell[*][2][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][1][j] = cell[i][2][j];
+        // cell[*][2][*] = load 9 cells
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][2][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+1,currentCellCoords.z+j-1, overworld);
+                cell[i][2][j]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+1,currentCellCoords.z+j-1);
+            }
+    }else if(cellCoords.y > currentCellCoords.y) // moved south
+    {
+        // unload cell[*][2][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][2][j]->unload(world);
+                delete cell[i][2][j];
+            }
+        // cell[*][2][*] = cell[*][1][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][2][j] = cell[i][1][j];
+        // cell[*][1][*] = cell[*][0][*]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][1][j] = cell[i][0][j];
+        // cell[*][0][*] = load 9 cells
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][0][j] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y-1,currentCellCoords.z+j-1, overworld);
+                cell[i][0][j]->load(world,currentCellCoords.x+i-1,currentCellCoords.y-1,currentCellCoords.z+j-1);
+            }
+    }else if(cellCoords.z < currentCellCoords.z) // moved up
+    {
+        // unload cell[*][*][0]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][j][0]->unload(world);
+                delete cell[i][j][0];
+            }
+        // cell[*][*][0] = cell[*][*][1]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][j][0] = cell[i][j][1];
+        // cell[*][*][1] = cell[*][*][2]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][j][1] = cell[i][j][2];
+        // cell[*][*][2] = load 9 cells
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][j][2] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z+1, overworld);
+                cell[i][j][2]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z+1);
+            }
+    }else if(cellCoords.z > currentCellCoords.z) // moved down
+    {
+        // unload cell[*][*][2]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][j][2]->unload(world);
+                delete cell[i][j][2];
+            }
+        // cell[*][*][2] = cell[*][*][1]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][j][2] = cell[i][j][1];
+        // cell[*][*][1] = cell[*][*][0]
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+                cell[i][j][1] = cell[i][j][0];
+        // cell[*][*][0] = load 9 cells
+        for(i=0;i<3;i++)
+            for(j=0;j<3;j++)
+            {
+                cell[i][j][0] = new MapCell(cellSizeXY,cellSizeZ,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z-1, overworld);
+                cell[i][j][0]->load(world,currentCellCoords.x+i-1,currentCellCoords.y+j-1,currentCellCoords.z-1);
+            }
+    }
+    
+    // shift the current cell coords
+    cellCoords = currentCellCoords;
 }
 
 int Game::getHungerLevel(float hunger)
@@ -773,6 +1029,18 @@ void Game::toggleCloseEyes()
     }else {
         addToLog("You open your eyes");
         eyesOpen = 1;
+    }
+}
+
+void Game::toggleGhost()
+{
+    if(world->move_type[player] == MOV_FLOAT)
+    {
+        printf("ghost mode off");
+        world->move_type[player] = MOV_FREE;
+    }else{
+        printf("ghost mode on");
+        world->move_type[player] = MOV_FLOAT;
     }
 }
 
@@ -1719,13 +1987,19 @@ MapCell * Game::getCellatCoords(int x, int y, int z)
     
     if(cx < 0 || cx > 2 || cy < 0 || cy > 2 || cz < 0 || cz > 2)
     {
-        fprintf(stderr,"asking for invalid cell %d %d %d in getCellatCoords(%d %d %d),cellCoords=%d %d %d",cx,cy,cz,x,y,z,cellCoords.x,cellCoords.y,cellCoords.z);
+        //fprintf(stderr,"asking for invalid cell %d %d %d in getCellatCoords(%d %d %d),cellCoords=%d %d %d\n",cx,cy,cz,x,y,z,cellCoords.x,cellCoords.y,cellCoords.z);
         return NULL;
     }
     //printf("getCellCoords %d %d %d got cell %d %d %d\n",x,y,z,cc.x,cc.y,cc.z);
     return cell[cx][cy][cz];
 }
 
+
+void Game::setTileType(PosInt p, TileType tt)
+{
+    MapCell *c = getCellatCoords(p); // gets the cell that owns the coords
+    c->setGlobalTileType(p, tt);
+}
 MapTile* Game::getTile(int x, int y, int z)
 {
     MapCell *c = getCellatCoords(x,y,z); // gets the cell that owns the coords
@@ -1743,6 +2017,15 @@ MapTile* Game::getTile(PosInt p)
 MapTile* Game::getTile(Float3 p)
 {
     return getTile(Float32PosInt_rounded(p));
+}
+
+int Game::isInBounds(PosInt p)
+{
+    MapCell *c = getCellatCoords(p.x,p.y,p.z); // gets the cell that owns the coords
+    if (c == NULL)
+        return 0;
+    else
+        return 1;
 }
 
 float Game::wasSeen(MapTile* tile){ return tile->wasSeen;}

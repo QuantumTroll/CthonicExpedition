@@ -26,6 +26,7 @@ const int maxEntities = 1024;
 const float sqrt2 = sqrtf(2.0);
 const float isqrt2 = 1.0/sqrt2;
 
+const int maxWaterSourcesPerCell = 128;
 
 typedef struct {
     float x;
@@ -111,7 +112,8 @@ typedef enum
     KEY_ORIENTEER = 1 << 13,
     KEY_CLOSEEYES = 1 << 14,
     KEY_DROP = 1 << 15,
-    KEY_PICKUP = 1 << 16
+    KEY_PICKUP = 1 << 16,
+    KEY_GHOST = 1 << 17
 } Key;
 
 typedef enum

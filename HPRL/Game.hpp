@@ -78,6 +78,7 @@ private:
     float throwFlare();
     float wieldFlare(entity_t flare);
     float jump();
+    void toggleGhost();
     void toggleLook();
     void toggleCloseEyes();
     float toggleClimb();
@@ -131,10 +132,17 @@ public:
     
     // let DrawWindow and others ask for any cell.
     MapCell* getCellatCoords(int x, int y, int z);
+    MapCell* getCellatCoords(PosInt p){return getCellatCoords(p.x,p.y,p.z);}
     MapCell* getCell(int i, int j, int k) { return cell[i][j][k]; }
 // returns the coordinates of the map cell for given global coords    
     PosInt getCellCoords(int x, int y, int z);
     PosInt getCellCoords(PosInt p) {return getCellCoords(p.x,p.y,p.z);}
+    
+    int isInBounds(PosInt p);
+    
+    void moveCells(PosInt currentCellCoords);
+    void propagateWater();
+    void addWaterSource(PosInt p, MCInfo* mci);
     
     float wasSeen(MapTile* tile);
     void setWasSeen(MapTile* tile, float light);
@@ -143,6 +151,8 @@ public:
     MapTile* getTile(float x, float y, float z);
     MapTile* getTile(PosInt p);
     MapTile* getTile(Float3 p);
+    
+    void setTileType(PosInt p, TileType tt);
     
     char* getMoodDescription(float mood);
     int getHungerLevel(float h);

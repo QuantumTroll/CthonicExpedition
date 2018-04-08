@@ -25,6 +25,7 @@ Overworld::Overworld()
                 cells[k][i][j].type = MCT_DEFAULT;
                 cells[k][i][j].numConnections = 0;
                 cells[k][i][j].pos = {i,j,k};
+                cells[k][i][j].numWaterSources = 0;
             }
         }
     }
@@ -48,7 +49,7 @@ Overworld::Overworld()
     PosInt startPos = {2,2,OWdepth-2};
     
     PosInt subglacialStart = startPos;
-    PosInt subglacialEnd = sumPosInt(startPos,{5,3,0});
+    PosInt subglacialEnd = sumPosInt(startPos,{2,1,0});
     
     buildSubglacialStream(subglacialStart, subglacialEnd);
     setMapCellType(startPos,MCT_ENTRANCE);
@@ -98,7 +99,7 @@ void Overworld::buildSubglacialStream(PosInt start, PosInt end)
         
         // connections must be along "height" of ice 3*sizez/5
         // connectCells aware of cur type?
-        connectCells(prev, cur);
+        connectCells(prev, cur,j+1);
         prev = cur;        
     }
 }
@@ -139,6 +140,11 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
         }else{ // 50% totally another direction
             nextDir = normaliseFloat3({frand(-1,1),frand(-1,1),frand(-1,1)});
             // sumPosInt(current->p,{(int)random()%5-2,(int)random()%5-2,(int)random()%5-2});
+        }
+        // TODO: get rid of this hack. always go down when dpeth is 3
+        if(depth == 3)
+        {
+            nextDir = {0,0,-1};
         }
         
         // but how far?
@@ -185,8 +191,12 @@ void Overworld::buildCaverns(CaveNode *current, int depth)
     }
 }
 
-// assume waterflow goes from a to b.
 void Overworld::connectCells(MCInfo *a, MCInfo *b)
+{
+    connectCells(a,b,irand(0,4));
+}
+
+void Overworld::connectCells(MCInfo *a, MCInfo *b, int size)
 {
     if(a == b) // got the same pointers for some reason :P
         return;
@@ -225,14 +235,13 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
     }else
         printf("PROBLEM creating mapcell connection: %d %d %d = %d %d %d?\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
     
-    printf("connecting %d %d %d to %d %d %d (%d %d)\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z,a->connection[a->numConnections].dir,b->connection[b->numConnections].dir);
     
     float offsetX = frand(0.1,0.9);
     float offsetY = frand(0.1,0.9);
-    int size = irand(1,4);
+    //int size = irand(1,4);
     
     // if b->type is MCT_GLACIERBOTTOM, the connections must be flat
-    // size is also larger
+    // size is also larger, well, used to be
     if(b->type == MCT_GLACIERBOTTOM)
     {
         offsetY = 0.6; // 3/5, along which the ice lies
@@ -247,55 +256,22 @@ void Overworld::connectCells(MCInfo *a, MCInfo *b)
     b->connection[b->numConnections].j = offsetY;
     b->connection[b->numConnections].size = size;
     
-    // waterlevel is related to flow and size and speed.
-    // doesn't have to be entirely physical.
-    // assume water flows from a to b
-  /*  if(flow == 0)
-    {
-        a->connection[a->numConnections].waterLevel = 0;
-        a->connection[a->numConnections].waterSpeed = 0;
-        a->connection[a->numConnections].flowDir = DIR_NONE;
-        
-        b->connection[b->numConnections].waterLevel = 0;
-        b->connection[b->numConnections].waterSpeed = 0;
-        b->connection[b->numConnections].flowDir = DIR_NONE;
-    }else {
-        // liters/second (flow) is proportional to waterlevel*size*size * speed.
-        
-        //determine speed after the fact...
-        float speed = 1.0;
-        float waterLevel = flow/(size*size);
-        if(waterLevel > 1) // lots of water flowing through narrow pipe means fast flow
-        {
-            speed = waterLevel;
-            waterLevel = 1;
-        }else if(waterLevel < 1.0/size) // can't have non-zero water level less than 1 tile
-        {
-            speed = flow/(waterLevel * size); //TODO: this is probably wrong
-            waterLevel = 1.0/size;
-        }
-        a->connection[a->numConnections].waterLevel = waterLevel;
-        a->connection[a->numConnections].waterSpeed = speed;
-        a->connection[a->numConnections].flowDir = a->connection[a->numConnections].dir;
-        
-        b->connection[b->numConnections].waterLevel = waterLevel;
-        b->connection[b->numConnections].waterSpeed = speed;
-        b->connection[b->numConnections].flowDir = a->connection[a->numConnections].dir; // from a to b...
-    }*/
+    printf("connecting %d %d %d to %d %d %d (%d %d), size %d\n",pa.x,pa.y,pa.z,pb.x,pb.y,pb.z,a->connection[a->numConnections].dir,b->connection[b->numConnections].dir, a->connection[a->numConnections].size);
+    
     
     a->numConnections ++;
     b->numConnections ++;
 }
 
 //MCInfo(int int int) returns a struct with general mapcell gen info
-MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
+MCInfo* Overworld::getMCInfo(int gx, int gy, int gz)
 {
     if(gx < 0 || gx >= OWwidth || gy < 0 || gy >= OWwidth || gz < 0 || gz >= OWdepth )
-        return cells[0][0][0]; // hey, why not?
+        return &cells[0][0][0]; // hey, why not?
     
-    MCInfo info = cells[gz][gx][gy];
+    MCInfo* info = &cells[gz][gx][gy];
     
-    if(info.type != MCT_DEFAULT) // if not default, preserve whatever is there
+    if(info->type != MCT_DEFAULT) // if not default, preserve whatever is there
     {
                         printf("%d %d %d something\n",gx,gy,gz);
         return info;
@@ -306,19 +282,19 @@ MCInfo Overworld::getMCInfo(int gx, int gy, int gz)
     if(gx == 2 && gy == 2 && gz == 28)
     {
                         printf("%d %d %d entrance\n",gx,gy,gz);
-        info.type = MCT_ENTRANCE;
+        info->type = MCT_ENTRANCE;
         return info;
     }
     if(gz == 28)
     {
         printf("%d %d %d glacierbottom\n",gx,gy,gz);
-        info.type = MCT_GLACIERBOTTOM;
+        info->type = MCT_GLACIERBOTTOM;
         return info;
     }
     if(gz > 28)
     {
                 printf("%d %d %d glacier\n",gx,gy,gz);
-        info.type = MCT_GLACIER;
+        info->type = MCT_GLACIER;
         return info;
     }
                     printf("%d %d %d default\n",gx,gy,gz);

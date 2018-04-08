@@ -83,6 +83,15 @@ PosInt MapCell::getGlobalCeilingBelow(PosInt p){return getCeilingBelow(getLocalP
 MapTile* MapCell::getGlobalFloorTileAbove(PosInt p){return getFloorTileAbove(getLocalPos(p));}
 MapTile* MapCell::getGlobalCeilingTileBelow(PosInt p){return getCeilingTileBelow(getLocalPos(p));}
 
+int MapCell::isEdge(PosInt p)
+{
+    return (p.x==0 || p.y==0 || p.z==0 || p.x==sizexy-1 || p.y==sizexy-1 || p.z==sizez-1);
+}
+int MapCell::isGlobalEdge(PosInt p)
+{
+    return isEdge(getLocalPos(p));
+}
+
 void MapCell::setFlow(MapTile* t, float speed, Direction dir)
 {
     t->propmask = (TileProp)(t->propmask | TP_FLOW);
@@ -239,8 +248,12 @@ MapCell::MapCell(int sxy, int sz, int x, int y, int z, Overworld* ow)
                 }
             }
         }
-    }
-   
+    }   
+}
+
+void MapCell::setGlobalTileType(PosInt p, TileType tt)
+{
+    setTileType(getLocalPos(p), tt);
 }
 
 void MapCell::setTileType(PosInt p, TileType tt)
@@ -254,7 +267,10 @@ void MapCell::setTileType(int x, int y, int z, TileType tt)
         return;
     
     MapTile * tile = &tiles[z][x][y];
-    
+    setTileType(tile, tt);
+}
+void MapCell::setTileType(MapTile* tile, TileType tt)
+{
     switch(tt)
     {
         case TT_AIR:
@@ -332,11 +348,10 @@ void MapCell::initTile(int x, int y, int z)
 // takes info from overworld and translates it into local topology
 void MapCell::generateLocalTopology()
 {
-    MCInfo info = overworld->getMCInfo(gx, gy, gz);
+    MCInfo* info = overworld->getMCInfo(gx, gy, gz);
     
     // These functions create rock and air, undynamic features
-    // TODO: place watersources so game can propagate water?
-    switch(info.type)
+    switch(info->type)
     {
         case(MCT_ENTRANCE): genLocalEntrance(info); break;
         case(MCT_GLACIER): genLocalGlacier(info); break;
@@ -346,68 +361,73 @@ void MapCell::generateLocalTopology()
         
         default: genLocalDefault(info);
     }
+    
+    // add the water sources here?
+    int i;
+    for(i=0; i<info->numWaterSources; i++)
+    {
+        waterSources.push_back(info->source[i]);
+    }
 }
 
 void MapCell::genTunnel_round(PosInt start, PosInt end, int diam)
 {
-   // genTunnel_round(start, end, diam, DIR_NONE,0, -diam, DIR_NONE);
-//}
-//TODO: get rid of water/flow bullshit from tunnels
-// waterLevel is tiles of water relative to center of tunnel. 0 is center, -diam/2 is bottom, diam/2 is top.
-//void MapCell::genTunnel_round(PosInt start, PosInt end, int diam, Direction flowDir, float waterSpeed, int waterLevel, Direction waterDir)
-//{
-//    waterLevel = 0;
-    // TODO: don't assume that waterDir is DIR_DOWN (i.e. that water is at the bottom of a channel. whatabout falls straight doooown?
-  //  printf("tunnel from %d %d %d to %d %d %d, diam %d, waterLevel %d\n",start.x,start.y,start.z,end.x,end.y,end.z,diam,waterLevel);
-    
-    // blah!
-    
-    
-    //waterLevel = 0;
-   /* int wL = (int)(waterLevel + (diam)/2 + 1);
-   // printf("water %d tiles, diam %d\n",wL, diam);
-    
-    if(waterLevel < diam/2)
-        setTileType(start,TT_AIR);
-    else
-    {
-        setTileType(start,TT_WATER); //TT_WATER
-        setFlow(start,waterSpeed,flowDir);
-    }*/
-    
+    genTunnel_round( start,  end, diam,2,1);
+}
+
+void MapCell::genTunnel_round(PosInt start, PosInt end, int diami, int jitterxy, int jitterz)
+{
     std::vector<PosInt> path = getStraightPath(start, end);
     path.push_back(start); // don't forget to dig out the start...
     
     int j, k,l,m;
     
-    float rad = diam*0.5;
+    float rad = diami*0.5;
     
     // traverse the path and set the tiles to air/water
     for(j=0;j<path.size(); j++)
     {
-        PosInt pos = path[j];
-        float nrad = rad*frand(0.8,1.2);
-        pos = sumPosInt(pos,{irand(-1,1),irand(-1,1),irand(-1,1)});
-        for(k=0;k<diam;k++)
+        PosInt pos;// = path[j];
+      //  float nrad = rad*frand(0.8,1.2);
+        //path[j] = sumPosInt(path[j],{irand(-jitterxy,jitterxy),irand(-jitterxy,jitterxy),irand(-jitterz,jitterz)});
+        PosInt diam;
+        diam.x = diami + irand(-jitterxy,jitterxy);
+        diam.y = diami + irand(-jitterxy,jitterxy);
+        diam.z = diami + irand(-jitterz,jitterz);
+        if (diam.x < 1)
+            diam.x = 1;
+        if (diam.y < 1)
+            diam.y = 1;
+        if (diam.z < 1)
+            diam.z = 1;
+    /*    PosInt jit = {irand(0,diam.x/2-1),irand(0,diam.y/2-1),irand(0,diam.z/2-1)};
+        if (jit.x < 0)
+            jit.x = 0;
+        if (jit.y < 0)
+            jit.y = 0;
+        if (jit.z < 0)
+            jit.z = 0;
+        
+        jit = {jit.x*irand(-1,1),jit.y*irand(-1,1),jit.z*irand(-1,1)};*/
+        // shit, screw position jitter for the moment. TODO: fix this maybe
+        PosInt jit = {0,0,0};
+        
+        //printf("jxyz %d %d, dim %d, dims %d %d %d, jit %d %d %d\n",jitterxy, jitterz,diami,diam.x,diam.y,diam.z,jit.x,jit.y,jit.z);
+        for(k=0;k<diam.x;k++)
         {
-            for(l=0;l<diam;l++)
+            for(l=0;l<diam.y;l++)
             {
-                for(m=0;m<diam;m++)
+                for(m=0;m<diam.z;m++)
                 {
-                    pos = sumPosInt(path[j],{k-diam/2,l-diam/2,m-diam/2});
+                    pos = sumPosInt(path[j],{k-diam.x/2,l-diam.y/2,m-diam.z/2});
+                    //sumPosInt(pos,{irand(-diamx/2,diamx/2),irand(-diamy/2,diamy/2),irand(-diamz/2,diamz/2)});
+                    pos = sumPosInt(pos,jit);
                     // check if pos is in tile
                     if(! isValidTile(pos))
                         continue;
                     float dist = distFloat3(PosInt2Float3(pos),PosInt2Float3(path[j]));
-                    if(dist < nrad)
+                    if(dist < rad) //nrad
                     {
-           //             if(m < wL)
-             //           {
-             //               setTileType(pos,TT_WATER); // TT_WATER
-             //               setFlow(pos,waterSpeed,flowDir);
-             //           }else {
-             //               setTileType(pos,TT_AIR);
-             //           }
                         setTileType(pos,TT_AIR);
                     }
                 }
@@ -475,7 +495,7 @@ void MapCell::genTunnel_square(PosInt start, PosInt end, int diam)
     }
 }
 
-void MapCell::genLocalCrystalCave(MCInfo info)
+void MapCell::genLocalCrystalCave(MCInfo* info)
 {
     // everything starts out as rock
     int i,j,k;
@@ -576,7 +596,7 @@ entity_t MapCell::makeLight(Float3 pos, float brightness, Float3 color, entity_t
     return light;
 }
 
-void MapCell::genLocalGlacier(MCInfo info)
+void MapCell::genLocalGlacier(MCInfo* info)
 {
     int i,j,k;
     // everything is ice
@@ -596,7 +616,7 @@ void MapCell::genLocalGlacier(MCInfo info)
 }
 
 
-void MapCell::genLocalGlacierBottom(MCInfo info)
+void MapCell::genLocalGlacierBottom(MCInfo* info)
 {
     // everything starts out as rock
     int i,j,k;
@@ -626,37 +646,9 @@ void MapCell::genLocalGlacierBottom(MCInfo info)
     //genStandardConnections(info);
     genSubglacialStreamConnections(info);
     
-    
-    /*
-    // carve out a small center
-    
-   for(i=2*sizexy/5; i<3*sizexy/5; i++)
-    {
-        for(j=2*sizexy/5; j<3*sizexy/5; j++)
-        {
-            for(k=2*sizez/5; k<3*sizez/5; k++)
-            {
-                if(i % 5 == 0 && j % 3 == 0)
-                    setTileType(i,j,k,TT_COLUMN);
-                else
-                    setTileType(i,j,k,TT_AIR);
-            }
-        }
-    }
-    
-    // create a pale light source somewhere above
-    entity_t ent2 = world->createEntity();
-    world->mask[ent2] = COMP_POSITION | COMP_OMNILIGHT;
-    PosInt lPos = getGlobalPos({irand(3,sizexy-3),irand(3,sizexy-3),sizez-3});
-    world->position[ent2] =  PosInt2Float3(lPos);
-    world->light_source[ent2].brightness = frand(1,5);
-    world->light_source[ent2].color = {.7,.9,1};
-    //printf("a light\n");*/
-    
-    
 }
 
-void MapCell::genLocalEntrance(MCInfo info)
+void MapCell::genLocalEntrance(MCInfo* info)
 {
     // everything starts out as rock
     int i,j,k;
@@ -694,11 +686,16 @@ void MapCell::genLocalEntrance(MCInfo info)
         }
     }
     // carve out a tunnel up
-    genTunnel_round({sizexy/2,sizexy/2,3*sizez/5+2}, {sizexy/2,sizexy/2,sizez}, 2);
+    genTunnel_round({sizexy/2,sizexy/2,3*sizez/5+2}, {sizexy/2,sizexy/2,sizez}, 2,1,0);
     
     // carve tiny inflow tunnel from left
-    genTunnel_round({sizexy/2,sizexy/2,3*sizez/5},{1,sizexy/2,3*sizez/5},1);//,DIR_EAST,2,2,DIR_DOWN);
-    //TODO: add water source at inflow
+    genTunnel_round({sizexy/2,sizexy/2,3*sizez/5},{1,sizexy/2,3*sizez/5},1,1,0);//,DIR_EAST,2,2,DIR_DOWN);
+    
+    //add water source at inflow
+    if(info->numWaterSources < maxWaterSourcesPerCell) {
+        info->source[info->numWaterSources] = getGlobalPos({1,sizexy/2,3*sizez/5}) ;
+        info->numWaterSources++;
+    }
     
     //genStandardConnections(info);
     genSubglacialStreamConnections(info);
@@ -725,10 +722,10 @@ void MapCell::genLocalEntrance(MCInfo info)
     
     
     // some bits of ice lying around
-    for(i=0; i < 5; i++)
+   /* for(i=0; i < 5; i++)
     {
         setTileType(getFloorAbove({irand(2*sizexy/5,3*sizexy/5),irand(2*sizexy/5,3*sizexy/5),0}), TT_ICE);
-    }
+    }*/
     
     // some glowing slimes lying about
     for(i=0; i < 5; i++)
@@ -742,13 +739,10 @@ void MapCell::genLocalEntrance(MCInfo info)
     }
 }
 
-void MapCell::genLocalTreasure(MCInfo info)
+void MapCell::genLocalTreasure(MCInfo* info)
 {
     // everything starts out as rock
-    
-    
-    PosInt c = {0,0,0};// {irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6),irand(-sizexy/6,sizexy/6)};
-    
+    PosInt c = {0,0,0};
 
     int i,j,k;
     for(i=0; i<sizexy; i++)
@@ -783,67 +777,61 @@ void MapCell::genLocalTreasure(MCInfo info)
 }
 
 // generate connection tunnels that lie along the ice/soil interface and conserve water flow
-void MapCell::genSubglacialStreamConnections(MCInfo info)
+void MapCell::genSubglacialStreamConnections(MCInfo* info)
 {
     int i;
     PosInt center = {(int)sizexy/2,(int)sizexy/2,(int)3*sizez/5};
   
-    for(i=0; i<info.numConnections; i++)
+    for(i=0; i<info->numConnections; i++)
     {
-        //printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info.connection[i].dir);
+        //printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info->connection[i].dir);
         PosInt start;
-        switch(info.connection[i].dir)
+        switch(info->connection[i].dir)
         {
-            case DIR_DOWN: start.z = 0; start.x = info.connection[i].i*sizexy; start.y = info.connection[i].j*sizexy; break;
-            case DIR_UP: start.z = sizez-1; start.x = info.connection[i].i*sizexy; start.y = info.connection[i].j*sizexy; break;
-            case DIR_NORTH: start.y = sizexy-1; start.x = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
-            case DIR_SOUTH: start.y = 0; start.x = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
-            case DIR_EAST: start.x = sizexy-1; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
-            case DIR_WEST: start.x = 0; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
+            case DIR_DOWN: start.z = 0; start.x = info->connection[i].i*sizexy; start.y = info->connection[i].j*sizexy; break;
+            case DIR_UP: start.z = sizez-1; start.x = info->connection[i].i*sizexy; start.y = info->connection[i].j*sizexy; break;
+            case DIR_NORTH: start.y = sizexy-1; start.x = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
+            case DIR_SOUTH: start.y = 0; start.x = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
+            case DIR_EAST: start.x = sizexy-1; start.y = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
+            case DIR_WEST: start.x = 0; start.y = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
             default: start = {0,0,0};
         }
         
-        int size = info.connection[i].size;
-        int altOffset = 0;
-        // TODO: figure out an offset that preserves waterlevel between segments
-        //altOffset = size - 1;
-        
-        start = sumPosInt(start,{0,0,altOffset});
-        center = sumPosInt(center,{0,0,altOffset});
+        int size = info->connection[i].size;
         
        //deal with up/down bendy streams in a better way in gentunnel_round
-        printf("connecting some shiznit from %d %d %d to %d\n",gx,gy,gz,info.connection[i].dir);
-        genTunnel_round(start, center, size);
+        printf("connecting some shiznit from %d %d %d to %d\n",gx,gy,gz,info->connection[i].dir);
+        genTunnel_round(start, center, size,5,0);
         
     }
 }
 
 
-void MapCell::genStandardConnections(MCInfo info, PosInt center)
+void MapCell::genStandardConnections(MCInfo* info, PosInt center)
 {
     int i;
     
-    for(i=0; i<info.numConnections; i++)
+    for(i=0; i<info->numConnections; i++)
     {
-        //printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info.connection[i].dir);
+        //printf("Cell %d %d %d connection %d goes %d\n",gx,gy,gz,i,info->connection[i].dir);
         PosInt start;
-        switch(info.connection[i].dir)
+        switch(info->connection[i].dir)
         {
-            case DIR_DOWN: start.z = 0; start.x = info.connection[i].i*sizexy; start.y = info.connection[i].j*sizexy; break;
-            case DIR_UP: start.z = sizez-1; start.x = info.connection[i].i*sizexy; start.y = info.connection[i].j*sizexy; break;
-            case DIR_NORTH: start.y = sizexy-1; start.x = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
-            case DIR_SOUTH: start.y = 0; start.x = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
-            case DIR_EAST: start.x = sizexy-1; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
-            case DIR_WEST: start.x = 0; start.y = info.connection[i].i*sizexy; start.z = info.connection[i].j*sizez; break;
+            case DIR_DOWN: start.z = 0; start.x = info->connection[i].i*sizexy; start.y = info->connection[i].j*sizexy; break;
+            case DIR_UP: start.z = sizez-1; start.x = info->connection[i].i*sizexy; start.y = info->connection[i].j*sizexy; break;
+            case DIR_NORTH: start.y = sizexy-1; start.x = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
+            case DIR_SOUTH: start.y = 0; start.x = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
+            case DIR_EAST: start.x = sizexy-1; start.y = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
+            case DIR_WEST: start.x = 0; start.y = info->connection[i].i*sizexy; start.z = info->connection[i].j*sizez; break;
             default: start = {0,0,0};
         }
         
-        int size = info.connection[i].size;
-        
+        int size = info->connection[i].size;
+      
         genTunnel_round(start, center, size);
     }
 }
-void MapCell::genStandardConnections(MCInfo info)
+void MapCell::genStandardConnections(MCInfo* info)
 {
     // for every connection, carve a path to the center
     PosInt end = {(int)sizexy/2,(int)sizexy/2,(int)sizez/2};
@@ -887,7 +875,7 @@ void MapCell::genVoid_sphere(PosInt center, int radius, int lumps)
     genVoid_sphere(center,radius);
 }
 
-void MapCell::genLocalDefault(MCInfo info)
+void MapCell::genLocalDefault(MCInfo* info)
 {
     // everything starts out as rock
     int i,j,k;

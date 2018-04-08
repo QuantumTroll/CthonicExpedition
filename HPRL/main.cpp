@@ -49,7 +49,6 @@ int main(int argc, const char * argv[]) {
         Fl::wait(.1);
         t1 = timer();
         //theGame->addToLog("doing systems");
-        // TODO: get delta t for this frame...
         theGame->doSystems(t1-t0);
         myWin->redraw();
     }

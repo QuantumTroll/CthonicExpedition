@@ -57,9 +57,9 @@ typedef struct
     MCType type;
     int numConnections;
     MCConnection connection[32];
-    short int connectMatrix[32][32];
+    //short int connectMatrix[32][32];
     int numWaterSources;
-    PosInt source[32]; //TODO: bug in the making...
+    PosInt source[maxWaterSourcesPerCell]; //TODO: bug in the making...
 }MCInfo;
 
 typedef struct
@@ -101,15 +101,17 @@ private:
     void buildSubglacialStream(PosInt start, PosInt end);
     
     void connectCells(MCInfo * a, MCInfo * b);
+    void connectCells(MCInfo * a, MCInfo * b, int size);
     
    // void connectCells(MCInfo * a, MCInfo * b, float flow);
 public:
     Overworld();
     //MCInfo(int int int) returns a struct with general mapcell gen info
-    MCInfo getMCInfo(int gx, int gy, int gz);
+    MCInfo* getMCInfo(int gx, int gy, int gz);
     
     //takes global x,y,z and produces pcg parameters for tile generation: age, fossil content, rock type
     TileInfo getTileInfo(int x, int y, int z);
+    
 };
 
 #endif /* Overworld_hpp */

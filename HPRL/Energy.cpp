@@ -16,6 +16,8 @@ void EnergySystem::exec(float timestep)
     if(pc->energy > pc->maxEnergy - pc->bruise)
         pc->energy = pc->maxEnergy - pc->bruise;
     
+    //pc->energy=100;
+    
     if(pc->bleed > 0)
     {
         pc->energy -= pc->bleed*timestep;
@@ -153,13 +155,14 @@ void EnergySystem::exec(float timestep)
         game->addLabel(s,3,{.8,.8,1});
     }
     
-    //TODO: update pc->oxygen
-    // if inside water and tile above not air
+    // update pc->oxygen
+    // if inside water (or rock) and tile above not air
     PosInt p = Float32PosInt(world->position[player]);
     PosInt p2 = sumPosInt(p, {0,0,1});
-    if(game->getTile(p)->propmask & TP_WATER && !(game->getTile(p2)->propmask & TP_AIR) )
+    
+    if(!(game->getTile(p)->propmask & TP_AIR) && !(game->getTile(p2)->propmask & TP_AIR) )
     {
-        pc->oxygen -= 0.2; // TODO: equipment & slimes will affect this
+        pc->oxygen -= 0.1; // TODO: equipment & slimes will affect this
     }else {
         pc->oxygen = fmin(1,pc->oxygen+0.3);        
     }
@@ -204,7 +207,7 @@ void EnergySystem::exec(float timestep)
     {
         //game->addLabel(game->getMoodDescription(pc->mood),2,{1,1,1});
     }
-    printf("mood %f\n",pc->mood);
+   // printf("mood %f\n",pc->mood);
 }
 
 // mood evolution varies depending on light, hunger, thirst, injury, mutation, number of held items, scientific progress ?, discovered cave features ?
@@ -214,14 +217,14 @@ float EnergySystem::getMoodMods()
     
     // entities with mood effects
     int ent;
+    int hasLight = 0;
     for(ent = 0; ent<maxEntities; ent++)
     {
         // check for wielded light sources
         //TODO: also check for other types of light than omnilight, e.g. spotlight
         if(world->mask[ent] & (COMP_OMNILIGHT | COMP_OWNED | COMP_CAN_MOVE) && world->move_type[ent] & MOV_WIELDED)
         {
-            mm += 1;
-            printf("mood +1 wielded light\n");
+            hasLight = 1;
         }
         
         // just count how many things we still have. More is better.
@@ -231,18 +234,19 @@ float EnergySystem::getMoodMods()
             mm += 0.05;
         }*/
     }
+    mm += hasLight;
     // whole, dry, and warm clothing is positive. The opposite is not.
     // default armour is 3
     mm -= 0.1*(3-pc->armour);
-    printf("mood %f torn clothes\n",- 0.1*(3-pc->armour));
+   // printf("mood %f torn clothes\n",- 0.1*(3-pc->armour));
     
     // hunger is depressing. Hunger is in [0, 1...), 0 not hungry
     mm -= fmax(0,pc->hunger)*fmax(0,pc->hunger);
-    printf("mood %f hunger\n",-pc->hunger*pc->hunger);
+   // printf("mood %f hunger\n",-pc->hunger*pc->hunger);
     
     // thirst is distressing. Thirst is in same range as hunger.
     mm -= fmax(0,pc->thirst)*fmax(0,pc->thirst);
-    printf("mood %f thirst\n",-pc->thirst*pc->thirst);
+   // printf("mood %f thirst\n",-pc->thirst*pc->thirst);
     
     // bruising hurts. Can be from 0 to 100
     mm -= 0.01*(pc->bruise);
@@ -254,10 +258,10 @@ float EnergySystem::getMoodMods()
     if(pc->energy > pc->maxEnergy*0.9)
     {
         mm += 0.2;
-        printf("mood +0.2 rested\n");
+   //     printf("mood +0.2 rested\n");
     }else{
         mm -= (1 - pc->energy/pc->maxEnergy);
-        printf("mood %f rested\n", -(1 - pc->energy/pc->maxEnergy));
+    //    printf("mood %f rested\n", -(1 - pc->energy/pc->maxEnergy));
     }
     //TODO: there will be mutations that make cave life more palatable
     
