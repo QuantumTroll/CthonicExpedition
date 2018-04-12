@@ -779,7 +779,7 @@ void MapCell::genLocalTreasure(MCInfo* info)
 // generate connection tunnels that lie along the ice/soil interface and conserve water flow
 void MapCell::genSubglacialStreamConnections(MCInfo* info)
 {
-    int i;
+    int i,j;
     PosInt center = {(int)sizexy/2,(int)sizexy/2,(int)3*sizez/5};
   
     for(i=0; i<info->numConnections; i++)
@@ -801,8 +801,24 @@ void MapCell::genSubglacialStreamConnections(MCInfo* info)
         
        //deal with up/down bendy streams in a better way in gentunnel_round
         printf("connecting some shiznit from %d %d %d to %d\n",gx,gy,gz,info->connection[i].dir);
-        genTunnel_round(start, center, size,5,0);
-        
+        //genTunnel_round(start, center, size,5,0);
+        printf("tunnel from %d %d %d to %d %d %d\n",start.x,start.y,start.z,center.x,center.y,center.z);
+        PosInt p = start;
+        PosInt prev = p;
+        // more twisty tunnel
+        int numTurns = 3;//irand(0,5);
+        float distPerTurn = (float)distPosInt(start,center)/numTurns;
+        Float3 dir;
+        for(j=0; j<numTurns; j++)
+        {
+            dir = normaliseFloat3(PosInt2Float3( diffPosInt(center, prev) ));
+            p = sumPosInt(prev, Float32PosInt(mulFloat3(dir, distPerTurn)) );
+            p = sumPosInt(p,{irand(-2,2),irand(-2,2),0});
+            printf("\t%d/%d: %d %d %d to %d %d %d\n",j+1,numTurns,prev.x,prev.y,prev.z,p.x,p.y,p.z);
+            genTunnel_round(prev,p,size,5,0);
+            prev = p;
+        }
+        genTunnel_round(p,center,size,5,0);
     }
 }
 

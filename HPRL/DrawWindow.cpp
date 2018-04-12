@@ -69,7 +69,7 @@ DrawWindow::DrawWindow(int X, int Y, int W, int H, char *L, World* w, Game* g):F
     }
     
     sidePanel_x = tiles_on_screen_x/4+1;
-    sidePanel_y = tiles_on_screen_y;
+    sidePanel_y = tiles_on_screen_y+1;
     sidePanelX_y = tiles_on_screen_y/2;
     sidePanelY_y = tiles_on_screen_y/2;
     shade_side = (Float3 ***)malloc(sidePanel_x * sizeof(Float3 *));
