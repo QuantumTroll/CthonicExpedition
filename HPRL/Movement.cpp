@@ -454,6 +454,10 @@ void Movement::exec(float timestep)
                 if(game->getTile(*p)->propmask & TP_AIR)
                     w->move_type[ent] = MOV_FREE;
                 
+                // snap position to grid to avoid "in-wall" effect
+                p->x = (int) (p->x + 0.5);
+                p->y = (int) (p->y + 0.5);
+                p->z = (int) (p->z + 0.5);
                 
                 v->x = 0;
                 v->y = 0;
@@ -476,7 +480,7 @@ void Movement::exec(float timestep)
                     p->z += timestep*v->z;
                     
                     //check whether a climbing player should start walking. if on nonslippery walkable surface.
-                    //TODO: what about a climbing player who enters water?
+                    // what about a climbing player who enters water? keep climbing!
                     if(w->move_type[ent] & MOV_CLIMB)
                     {
                         if( game->getHasClimbed())
