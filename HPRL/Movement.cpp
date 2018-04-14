@@ -402,7 +402,7 @@ void Movement::exec(float timestep)
                     continue;
                 }
                 
-                // simulate movement until it hits a solid
+                // simulate movement until it hits a solid                
                 float dt = 0.001;
                 float t = 0;
                 PosInt piOld = pi;
@@ -412,7 +412,7 @@ void Movement::exec(float timestep)
                     *p = sumFloat3(*p, mulFloat3(*v, dt));  // dt = v * time
                     pi = Float32PosInt(*p);
                     
-                    if(game->getTile(pi.x,pi.y,pi.z)->propmask & (TP_SOLID))
+                    if(game->getTile(pi.x,pi.y,pi.z)->propmask & (TP_SOLID|TP_WATER) )
                     {
                         // tell Game that we just hit something. Give it v to see how hard.
                         game->collision(ent, normFloat3(*v));
@@ -463,7 +463,7 @@ void Movement::exec(float timestep)
                 v->y = 0;
                 v->z = 0;
             }else if(! (w->move_type[ent] & MOV_WIELDED)) {
-                // do simpler stuff for other movement modes
+                // do simpler stuff for other movement modes, e.g. walking, climbing
                 Float3 *p = &(w->position[ent]);
                 Float3 *v = &(w->velocity[ent]);
                 
@@ -523,6 +523,7 @@ void Movement::exec(float timestep)
     }
     
     //move all wielded objects to player's position
+    // must do this *after* the player has moved, obvs.
     for(ent = 0; ent<maxEntities; ent++)
     {
         if(w->mask[ent] & mask && w->move_type[ent] & MOV_WIELDED)

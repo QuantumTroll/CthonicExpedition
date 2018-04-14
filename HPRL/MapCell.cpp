@@ -370,6 +370,8 @@ void MapCell::generateLocalTopology()
     }
 }
 
+
+
 void MapCell::genTunnel_round(PosInt start, PosInt end, int diam)
 {
     genTunnel_round( start,  end, diam,2,1);
@@ -400,17 +402,9 @@ void MapCell::genTunnel_round(PosInt start, PosInt end, int diami, int jitterxy,
             diam.y = 1;
         if (diam.z < 1)
             diam.z = 1;
-    /*    PosInt jit = {irand(0,diam.x/2-1),irand(0,diam.y/2-1),irand(0,diam.z/2-1)};
-        if (jit.x < 0)
-            jit.x = 0;
-        if (jit.y < 0)
-            jit.y = 0;
-        if (jit.z < 0)
-            jit.z = 0;
-        
-        jit = {jit.x*irand(-1,1),jit.y*irand(-1,1),jit.z*irand(-1,1)};*/
+    
         // shit, screw position jitter for the moment. TODO: fix this maybe
-        PosInt jit = {0,0,0};
+        //PosInt jit = {0,0,0};
         
         //printf("jxyz %d %d, dim %d, dims %d %d %d, jit %d %d %d\n",jitterxy, jitterz,diami,diam.x,diam.y,diam.z,jit.x,jit.y,jit.z);
         for(k=0;k<diam.x;k++)
@@ -421,7 +415,7 @@ void MapCell::genTunnel_round(PosInt start, PosInt end, int diami, int jitterxy,
                 {
                     pos = sumPosInt(path[j],{k-diam.x/2,l-diam.y/2,m-diam.z/2});
                     //sumPosInt(pos,{irand(-diamx/2,diamx/2),irand(-diamy/2,diamy/2),irand(-diamz/2,diamz/2)});
-                    pos = sumPosInt(pos,jit);
+                    //pos = sumPosInt(pos,jit);
                     // check if pos is in tile
                     if(! isValidTile(pos))
                         continue;
@@ -800,9 +794,9 @@ void MapCell::genSubglacialStreamConnections(MCInfo* info)
         int size = info->connection[i].size;
         
        //deal with up/down bendy streams in a better way in gentunnel_round
-        printf("connecting some shiznit from %d %d %d to %d\n",gx,gy,gz,info->connection[i].dir);
+   //     printf("connecting some shiznit from %d %d %d to %d\n",gx,gy,gz,info->connection[i].dir);
         //genTunnel_round(start, center, size,5,0);
-        printf("tunnel from %d %d %d to %d %d %d\n",start.x,start.y,start.z,center.x,center.y,center.z);
+   //     printf("tunnel from %d %d %d to %d %d %d\n",start.x,start.y,start.z,center.x,center.y,center.z);
         PosInt p = start;
         PosInt prev = p;
         // more twisty tunnel
@@ -814,7 +808,7 @@ void MapCell::genSubglacialStreamConnections(MCInfo* info)
             dir = normaliseFloat3(PosInt2Float3( diffPosInt(center, prev) ));
             p = sumPosInt(prev, Float32PosInt(mulFloat3(dir, distPerTurn)) );
             p = sumPosInt(p,{irand(-2,2),irand(-2,2),0});
-            printf("\t%d/%d: %d %d %d to %d %d %d\n",j+1,numTurns,prev.x,prev.y,prev.z,p.x,p.y,p.z);
+        //    printf("\t%d/%d: %d %d %d to %d %d %d\n",j+1,numTurns,prev.x,prev.y,prev.z,p.x,p.y,p.z);
             genTunnel_round(prev,p,size,5,0);
             prev = p;
         }

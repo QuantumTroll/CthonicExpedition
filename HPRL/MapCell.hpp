@@ -89,6 +89,7 @@ private:
     void genTunnel_round(PosInt start, PosInt end, int diam);
     void genTunnel_round(PosInt start, PosInt end, int diam, int jitterxy, int jitterz);
     void genTunnel_round_straight(PosInt start, PosInt end, int diam);
+    void genTunnel_oval(PosInt start, PosInt end, float angle, int diamx, int diamy, int jitterxy, int jitterz);
     void genVoid_sphere(PosInt center, int radius);
     void genVoid_sphere(PosInt center, int radius, int lumps);
     void initTile(int x, int y, int z);
